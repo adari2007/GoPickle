@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     port: 6173,
     strictPort: true
+  },
+  preview: {
+    allowedHosts: "all"
   }
 });
 
