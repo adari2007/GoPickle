@@ -8,7 +8,7 @@ export default defineConfig({
     strictPort: true
   },
   preview: {
-    allowedHosts: "all"
+    allowedHosts: true
   }
 });
 
