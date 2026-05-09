@@ -6,7 +6,9 @@
     "install:web": "npm --prefix web install",
     "install:mobile": "npm --prefix mobile install",
     "dev:web": "npm --prefix web run dev",
-    "dev:mobile": "npm --prefix mobile run start"
+    "dev:mobile": "npm --prefix mobile run start",
+    "build": "npm --prefix web install && npm --prefix web run build",
+    "start": "npm --prefix web run start"
   }
 }
 
