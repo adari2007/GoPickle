@@ -1,0 +1,12 @@
+{
+  "name": "gopickle-ui",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "install:web": "npm --prefix web install",
+    "install:mobile": "npm --prefix mobile install",
+    "dev:web": "npm --prefix web run dev",
+    "dev:mobile": "npm --prefix mobile run start"
+  }
+}
+
