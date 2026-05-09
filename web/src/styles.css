@@ -1467,6 +1467,53 @@ body {
   gap: 8px;
 }
 
+.organizer-danger-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(239,68,68,.18);
+}
+
+.btn-danger {
+  flex: 1;
+  min-width: 120px;
+  height: 34px;
+  padding: 0 14px;
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.30);
+  color: #f87171;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .18s;
+  white-space: nowrap;
+}
+.btn-danger:hover:not(:disabled) { background: rgba(239,68,68,.22); }
+.btn-danger:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-danger-outline {
+  flex: 1;
+  min-width: 120px;
+  height: 34px;
+  padding: 0 14px;
+  background: rgba(148,163,184,.08);
+  border: 1px solid rgba(148,163,184,.25);
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .18s;
+  white-space: nowrap;
+}
+.btn-danger-outline:hover:not(:disabled) { background: rgba(148,163,184,.16); color: var(--text); }
+.btn-danger-outline:disabled { opacity: .45; cursor: not-allowed; }
+
 .btn-sm {
   height: 32px;
   padding: 0 13px;

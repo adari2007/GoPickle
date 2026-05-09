@@ -2624,12 +2624,15 @@ export function App() {
                             🏆 Declare Winner
                           </button>
                         )}
+                      </div>
+                      {/* Danger zone — separate row so it never gets squished */}
+                      <div className="organizer-danger-row">
                         {!finalsConfirmed && (qp.status === "ACTIVE" || qp.status === "PLAYOFFS") && (
-                          <button className="btn-sm btn-sm-complete" disabled={loading} onClick={onCloseQpSession}>
+                          <button className="btn-danger-outline" disabled={loading} onClick={onCloseQpSession}>
                             🏁 Close Without Winner
                           </button>
                         )}
-                        <button className="btn-sm" style={{ background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)", color: "#f87171", marginLeft: "auto" }} disabled={loading} onClick={onDeleteQpSession}>
+                        <button className="btn-danger" disabled={loading} onClick={onDeleteQpSession}>
                           🗑 Delete Session
                         </button>
                       </div>
