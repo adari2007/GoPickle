@@ -37,7 +37,7 @@ const SKILL_LEVELS = ["2.5", "3.0", "3.5", "4.0", "4.5", "5.0+", "OPEN"] as cons
 
 const AGE_BRACKETS = [
   { value: "OPEN",   label: "Open Age"    },
-  { value: "YOUNG",  label: "Young (<13)" },
+  { value: "YOUNG",  label: "Youth" },
   { value: "SENIOR", label: "Senior (55+)" },
 ] as const;
 
@@ -4624,9 +4624,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                   <div className="field">
                                     <label>Age Group</label>
                                     <select value={addDivInput.ageBracket} onChange={e => setAddDivInput(p => ({ ...p, ageBracket: e.target.value as "OPEN" | "YOUNG" | "SENIOR" }))}>
-                                      <option value="OPEN">Open Age</option>
-                                      <option value="YOUNG">Young (u35)</option>
-                                      <option value="SENIOR">Senior (50+)</option>
+                                      {AGE_BRACKETS.map(ab => <option key={ab.value} value={ab.value}>{ab.label}</option>)}
                                     </select>
                                   </div>
                                   <button className="btn-primary" style={{ width: "auto", padding: "0.5rem 1rem" }} disabled={loading}
