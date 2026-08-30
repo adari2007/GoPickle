@@ -653,6 +653,15 @@ export const api = {
   getPaymentProof: (tournamentId: string, regId: string, organizerId: string) =>
     request<{ proof: string }>(`/tournaments/${tournamentId}/registrations/${regId}/payment-proof?organizerId=${encodeURIComponent(organizerId)}`),
 
+  getWinnersCircle: () =>
+    request<{ tournaments: Array<{
+      id: string; name: string; startDate?: string; endDate?: string; format: string;
+      divisions: Array<{
+        eventId?: string; eventType?: string; skillLevel?: string; ageBracket?: string;
+        placements: Array<{ position: number; playerNames: string[]; label?: string; note?: string }>;
+      }>;
+    }> }>("/winners"),
+
   addTournamentEvent: (tournamentId: string, payload: { organizerId: string; eventType: string; skillLevel?: string; ageBracket?: "OPEN" | "YOUNG" | "SENIOR" }) =>
     request<{ event: TournamentEvent }>(`/tournaments/${tournamentId}/events`, { method: "POST", body: JSON.stringify(payload) }),
 

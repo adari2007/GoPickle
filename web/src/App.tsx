@@ -283,6 +283,8 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
   const [editTourneyComms, setEditTourneyComms] = useState({ registrationContact: "", tournamentContact: "" });
   const [editTourneyCoordinators, setEditTourneyCoordinators] = useState<Coordinator[]>([]);
   const [showAddDivision, setShowAddDivision] = useState(false);
+  const [showWinnersCircle, setShowWinnersCircle] = useState(false);
+  const [winnersCircle, setWinnersCircle] = useState<Awaited<ReturnType<typeof api.getWinnersCircle>>["tournaments"] | null>(null);
   const [addDivInput, setAddDivInput] = useState({ eventType: "MEN_DOUBLES", skillLevel: "OPEN", ageBracket: "OPEN" as "OPEN" | "YOUNG" | "SENIOR" });
   // Organizer player registration
   const [orgRegQuery, setOrgRegQuery] = useState("");
@@ -1541,6 +1543,15 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
       setEditTourneyBanner(undefined);
       setShowEditTourney(false);
       await selectTournament(tournamentId);
+    });
+  }
+
+  async function onOpenWinnersCircle() {
+    setShowWinnersCircle(true);
+    if (winnersCircle) return;
+    await withError(async () => {
+      const r = await api.getWinnersCircle();
+      setWinnersCircle(r.tournaments);
     });
   }
 
@@ -5840,12 +5851,64 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                   </>
                 );
               })()
+            ) : showWinnersCircle ? (
+              /* ── Winners Circle ── */
+              <>
+                <button className="btn-back" onClick={() => setShowWinnersCircle(false)}>← All Tournaments</button>
+                <div className="page-header">
+                  <h2>🏆 Winners Circle</h2>
+                  <p className="muted">Champions from every division, every tournament.</p>
+                </div>
+                {winnersCircle === null ? (
+                  <p className="empty-state">Loading…</p>
+                ) : winnersCircle.length === 0 ? (
+                  <p className="empty-state">No winners declared yet — champions will appear here once a tournament's divisions are finalized.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {winnersCircle.map(wt => (
+                      <div key={wt.id} className="glass-card">
+                        <h3 className="card-title" style={{ marginBottom: 4 }}>{wt.name}</h3>
+                        {(wt.startDate || wt.endDate) && (
+                          <p className="entity-sub" style={{ marginBottom: 14 }}>
+                            📅 {wt.startDate}{wt.endDate && wt.endDate !== wt.startDate ? ` – ${wt.endDate}` : ""}
+                          </p>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          {wt.divisions.map((d, i) => (
+                            <div key={d.eventId ?? i}>
+                              <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>
+                                {d.eventType ? `🏓 ${etLabel(d.eventType)}` : "General"}
+                                {d.skillLevel ? ` · ${d.skillLevel}` : ""}
+                                {d.ageBracket && d.ageBracket !== "OPEN" ? ` · ${abLabel(d.ageBracket)}` : ""}
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {d.placements.map(p => (
+                                  <div key={p.position} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    <span style={{ fontSize: "1.1rem", width: 28, textAlign: "center" }}>
+                                      {p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : p.position === 3 ? "🥉" : `#${p.position}`}
+                                    </span>
+                                    <span style={{ fontWeight: 700 }}>{p.playerNames.join(" & ")}</span>
+                                    {p.label && <span className="entity-sub">— {p.label}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               /* ── Tournament list ── */
               <>
-                <div className="page-header">
-                  <h2>Tournaments</h2>
-                  <p className="muted">Organize and compete in events.</p>
+                <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem" }}>
+                  <div>
+                    <h2>Tournaments</h2>
+                    <p className="muted">Organize and compete in events.</p>
+                  </div>
+                  <button className="btn-ghost" onClick={onOpenWinnersCircle}>🏆 Winners Circle</button>
                 </div>
 
                 {/* Partner invites banner */}
