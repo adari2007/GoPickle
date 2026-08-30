@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, setAuthToken, LeagueSummary, LeagueWeek, LeagueWeekResult, TournamentEvent, TournamentGroup, TournamentSubDivision, QpSession, QpMatch, QpStanding, QpPlacement } from "./lib/api";
 import { OrgBranding, clearSession, fileToDataUrl, saveSession } from "./lib/org";
 import { AdminPanel } from "./AdminPanel";
-import logo from "./assets/logo-pickle.svg";
 import buddyIcon from "./assets/icon-buddy.svg";
 import clubIcon from "./assets/icon-club.svg";
 import gameIcon from "./assets/icon-game.svg";
@@ -1673,7 +1672,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
       <div className="auth-root">
         <div className="auth-brand">
           <div className="auth-brand-inner">
-            <img src={org.logoUrl ?? logo} alt={org.name} className="auth-brand-logo" />
+            {org.logoUrl && <img src={org.logoUrl} alt={org.name} className="auth-brand-logo" />}
             <h1 className="auth-brand-name">{org.name}</h1>
             <p className="auth-brand-tagline">
               The modern social platform for pickleball — track clubs, buddies, matches, and tournaments.
@@ -1690,7 +1689,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
         <div className="auth-panel">
           <div className="auth-card">
             <div className="auth-card-logo-mobile">
-              <img src={org.logoUrl ?? logo} alt="" />
+              {org.logoUrl && <img src={org.logoUrl} alt="" />}
               <span>{org.name}</span>
             </div>
 
@@ -1763,7 +1762,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
       )}
       <nav className="topbar">
         <div className="topbar-brand">
-          <img src={org.logoUrl ?? logo} alt={org.name} className="topbar-logo" />
+          {org.logoUrl && <img src={org.logoUrl} alt={org.name} className="topbar-logo" />}
           <span className="topbar-name">{org.name}</span>
         </div>
 
