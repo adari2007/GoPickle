@@ -280,6 +280,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
   const [rrScheduleTime, setRrScheduleTime] = useState("");
   const [showEditTourney, setShowEditTourney] = useState(false);
   const [editTourneyInput, setEditTourneyInput] = useState({ name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", description: "", maxTeams: "", isDuprReported: false });
+  const [editTourneyBanner, setEditTourneyBanner] = useState<string | null | undefined>(undefined); // undefined = unchanged, null = remove
   // Organizer player registration
   const [orgRegQuery, setOrgRegQuery] = useState("");
   const [orgRegResults, setOrgRegResults] = useState<User[]>([]);
@@ -1508,8 +1509,10 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
         withdrawDeadline: editTourneyInput.withdrawDeadline || null,
         description: editTourneyInput.description || null,
         maxTeams: editTourneyInput.maxTeams ? parseInt(editTourneyInput.maxTeams) : null,
-        isDuprReported: editTourneyInput.isDuprReported
+        isDuprReported: editTourneyInput.isDuprReported,
+        ...(editTourneyBanner !== undefined ? { bannerData: editTourneyBanner } : {})
       });
+      setEditTourneyBanner(undefined);
       setShowEditTourney(false);
       await selectTournament(tournamentId);
     });
@@ -3643,6 +3646,23 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                 DUPR Reported Tournament
                                 <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400 }}>(requires DUPR ID + rating on registration)</span>
                               </label>
+                            </div>
+                            <div className="field">
+                              <label>Tournament Banner</label>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                {(editTourneyBanner ?? t.bannerData) && editTourneyBanner !== null && (
+                                  <img src={editTourneyBanner ?? t.bannerData} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />
+                                )}
+                                <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+                                  onChange={async e => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    try { setEditTourneyBanner(await fileToDataUrl(f, 1_500_000)); } catch (err) { setError((err as Error).message); }
+                                  }} />
+                                {(t.bannerData || editTourneyBanner) && editTourneyBanner !== null && (
+                                  <button type="button" className="btn-sm" onClick={() => setEditTourneyBanner(null)}>Remove banner</button>
+                                )}
+                              </div>
                             </div>
                             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                               <button className="btn-primary" style={{ flex: 1 }} disabled={loading} onClick={() => onUpdateTourneyDetails(t.id)}>Save Changes</button>

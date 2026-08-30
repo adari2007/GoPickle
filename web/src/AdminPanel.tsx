@@ -18,6 +18,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
   const [defaultTid, setDefaultTid] = useState(org.settings?.defaultTournamentId ?? "");
   const [primary, setPrimary] = useState(org.theme.primary ?? "#ff4d8d");
   const [accent, setAccent] = useState(org.theme.accent ?? "#7c6bff");
+  const [bg, setBg] = useState(org.theme.bg ?? "#06091a");
   const [members, setMembers] = useState<OrgUserInfo[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
         name,
         logoUrl: logoUrl.trim() ? logoUrl.trim() : null,
         logoData,
-        theme: { primary, accent, bg: org.theme.bg, preset: undefined },
+        theme: { primary, accent, bg, preset: undefined },
         settings: {
           defaultTournamentMode: defaultMode as "none" | "active" | "specific",
           defaultTournamentId: defaultMode === "specific" ? (defaultTid || null) : null
@@ -105,7 +106,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               {THEME_PRESETS.map(p => (
                 <button key={p.id} type="button"
-                  onClick={() => { setPrimary(p.primary); setAccent(p.accent); }}
+                  onClick={() => { setPrimary(p.primary); setAccent(p.accent); setBg(p.bg ?? "#06091a"); }}
                   style={{ padding: "0.35rem 0.6rem", borderRadius: 8, cursor: "pointer", border: "1px solid var(--border)", background: `linear-gradient(135deg, ${p.primary}, ${p.accent})`, color: "#fff", fontWeight: 700, fontSize: "0.75rem" }}>
                   {p.label}
                 </button>
@@ -120,6 +121,10 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
             <div className="field" style={{ flex: 1 }}>
               <label>Accent</label>
               <input type="color" value={accent} onChange={e => setAccent(e.target.value)} style={{ height: 42, padding: 4 }} />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Background</label>
+              <input type="color" value={bg} onChange={e => setBg(e.target.value)} style={{ height: 42, padding: 4 }} />
             </div>
           </div>
           {err && <p className="auth-error">{err}</p>}

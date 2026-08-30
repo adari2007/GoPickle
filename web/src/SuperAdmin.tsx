@@ -32,6 +32,8 @@ export function SuperAdmin() {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", slug: "", preset: "pickle", adminName: "", adminContact: "", adminPassword: "" });
   const [createdInfo, setCreatedInfo] = useState<string | null>(null);
+  const [orgMembers, setOrgMembers] = useState<Record<string, { id: string; name: string; email?: string; phone?: string; role: "ADMIN" | "MEMBER" }[]>>({});
+  const [newOrgAdmin, setNewOrgAdmin] = useState({ name: "", contact: "", password: "" });
 
   useEffect(() => {
     if (!token) return;
@@ -118,6 +120,44 @@ export function SuperAdmin() {
     try {
       await api.superRemoveAdmin(id);
       setAdmins(prev => prev.filter(a => a.id !== id));
+    } catch (e2) { setErr((e2 as Error).message); }
+  }
+
+  async function toggleExpanded(slug: string) {
+    const next = expanded === slug ? null : slug;
+    setExpanded(next);
+    setNewOrgAdmin({ name: "", contact: "", password: "" });
+    if (next && !orgMembers[next]) {
+      try {
+        const r = await api.superGetOrgMembers(next);
+        setOrgMembers(prev => ({ ...prev, [next]: r.members }));
+      } catch (e2) { setErr((e2 as Error).message); }
+    }
+  }
+
+  async function onToggleOrgMemberRole(slug: string, m: { id: string; role: "ADMIN" | "MEMBER" }) {
+    setErr(null);
+    const role = m.role === "ADMIN" ? "MEMBER" : "ADMIN";
+    try {
+      await api.superSetOrgMemberRole(slug, m.id, role);
+      setOrgMembers(prev => ({ ...prev, [slug]: (prev[slug] ?? []).map(x => x.id === m.id ? { ...x, role } : x) }));
+    } catch (e2) { setErr((e2 as Error).message); }
+  }
+
+  async function onAddOrgAdmin(e: React.FormEvent, slug: string) {
+    e.preventDefault();
+    setErr(null);
+    const isPhone = /^[+\d]/.test(newOrgAdmin.contact);
+    try {
+      const r = await api.superAddOrgMember(slug, {
+        name: newOrgAdmin.name,
+        email: isPhone ? undefined : newOrgAdmin.contact || undefined,
+        phone: isPhone ? newOrgAdmin.contact : undefined,
+        password: newOrgAdmin.password,
+        role: "ADMIN"
+      });
+      setOrgMembers(prev => ({ ...prev, [slug]: [{ id: r.member.id, name: newOrgAdmin.name, email: isPhone ? undefined : newOrgAdmin.contact, phone: isPhone ? newOrgAdmin.contact : undefined, role: "ADMIN" }, ...(prev[slug] ?? [])] }));
+      setNewOrgAdmin({ name: "", contact: "", password: "" });
     } catch (e2) { setErr((e2 as Error).message); }
   }
 
@@ -240,7 +280,7 @@ export function SuperAdmin() {
                   <button className="btn-ghost" onClick={() => patchOrg(o.slug, { status: o.status === "READY" ? "SUSPENDED" : "READY" })}>
                     {o.status === "READY" ? "Suspend" : "Reactivate"}
                   </button>
-                  <button className="btn-ghost" onClick={() => setExpanded(expanded === o.slug ? null : o.slug)}>
+                  <button className="btn-ghost" onClick={() => toggleExpanded(o.slug)}>
                     {expanded === o.slug ? "Collapse" : "Manage"}
                   </button>
                 </div>
@@ -288,6 +328,11 @@ export function SuperAdmin() {
                         <input type="color" value={o.theme?.accent ?? "#7c6bff"}
                           onChange={e => patchOrg(o.slug, { theme: { ...o.theme, accent: e.target.value } })} />
                       </label>
+                      <label style={{ fontSize: "0.75rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                        Background
+                        <input type="color" value={o.theme?.bg ?? "#06091a"}
+                          onChange={e => patchOrg(o.slug, { theme: { ...o.theme, bg: e.target.value } })} />
+                      </label>
                     </div>
                   </div>
                   <div>
@@ -296,6 +341,42 @@ export function SuperAdmin() {
                       {o.logoUrl && <img src={o.logoUrl} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: "contain", background: "var(--surface)" }} />}
                       <input type="file" accept="image/*" style={{ fontSize: "0.75rem", color: "var(--muted)" }}
                         onChange={e => onOrgLogoFile(o.slug, e.target.files?.[0])} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.4rem" }}>
+                      Members & admins
+                      {orgMembers[o.slug] && <span style={{ color: "var(--muted)", fontWeight: 400 }}> · {orgMembers[o.slug].filter(m => m.role === "ADMIN").length} admin(s), {orgMembers[o.slug].length} total</span>}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", maxWidth: 560 }}>
+                      {(orgMembers[o.slug] ?? []).map(m => (
+                        <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", border: "1px solid var(--border)", borderRadius: 8, padding: "0.35rem 0.6rem" }}>
+                          <div style={{ minWidth: 0 }}>
+                            <span style={{ fontWeight: 600 }}>{m.name}</span>
+                            <span style={{ fontSize: "0.72rem", color: "var(--muted)", marginLeft: 8 }}>{m.email ?? m.phone ?? ""}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: m.role === "ADMIN" ? "var(--pink)" : "var(--muted)" }}>{m.role}</span>
+                            <button className="btn-ghost" onClick={() => onToggleOrgMemberRole(o.slug, m)}>
+                              {m.role === "ADMIN" ? "Demote" : "Make admin"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {orgMembers[o.slug]?.length === 0 && <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>No members yet.</span>}
+                      <form onSubmit={e => onAddOrgAdmin(e, o.slug)} style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.3rem" }}>
+                        <input placeholder="name" value={newOrgAdmin.name} style={{ flex: 2, minWidth: 110 }}
+                          onChange={e => setNewOrgAdmin({ ...newOrgAdmin, name: e.target.value })} />
+                        <input placeholder="email or phone" value={newOrgAdmin.contact} style={{ flex: 2, minWidth: 130 }}
+                          onChange={e => setNewOrgAdmin({ ...newOrgAdmin, contact: e.target.value })} />
+                        <input placeholder="password" type="password" value={newOrgAdmin.password} style={{ flex: 2, minWidth: 110 }} autoComplete="new-password"
+                          onChange={e => setNewOrgAdmin({ ...newOrgAdmin, password: e.target.value })} />
+                        <button type="submit" className="btn-primary" style={{ width: "auto", padding: "0.4rem 0.8rem" }}
+                          disabled={!newOrgAdmin.name || !newOrgAdmin.contact || newOrgAdmin.password.length < 6}>
+                          Add admin
+                        </button>
+                      </form>
                     </div>
                   </div>
                 </div>

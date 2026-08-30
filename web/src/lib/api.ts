@@ -369,7 +369,7 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
-  updateTournamentDetails: (id: string, payload: { organizerId: string; name?: string; location?: string | null; startDate?: string | null; endDate?: string | null; registrationStartDate?: string | null; registrationEndDate?: string | null; withdrawDeadline?: string | null; description?: string | null; maxTeams?: number | null; isDuprReported?: boolean; registrationClosed?: boolean }) =>
+  updateTournamentDetails: (id: string, payload: { organizerId: string; name?: string; location?: string | null; startDate?: string | null; endDate?: string | null; registrationStartDate?: string | null; registrationEndDate?: string | null; withdrawDeadline?: string | null; description?: string | null; maxTeams?: number | null; isDuprReported?: boolean; registrationClosed?: boolean ; registrationContact?: string | null; tournamentContact?: string | null; coordinators?: { name: string; contact?: string; role?: string }[]; bannerData?: string | null }) =>
     request<{ tournament: any }>(`/tournaments/${id}/details`, {
       method: "PATCH",
       body: JSON.stringify(payload)
@@ -626,6 +626,15 @@ export const api = {
 
   superChangePassword: (payload: { currentPassword: string; newPassword: string }) =>
     request<{ message: string }>("/super/password", { method: "PATCH", body: JSON.stringify(payload) }),
+
+  superGetOrgMembers: (slug: string) =>
+    request<{ members: { id: string; name: string; email?: string; phone?: string; role: "ADMIN" | "MEMBER" }[] }>(`/super/orgs/${slug}/members`),
+
+  superAddOrgMember: (slug: string, payload: { name: string; email?: string; phone?: string; password: string; role?: "ADMIN" | "MEMBER" }) =>
+    request<{ member: { id: string; name: string; role: string } }>(`/super/orgs/${slug}/members`, { method: "POST", body: JSON.stringify(payload) }),
+
+  superSetOrgMemberRole: (slug: string, userId: string, role: "ADMIN" | "MEMBER") =>
+    request<{ member: { id: string; name: string; role: string } }>(`/super/orgs/${slug}/members/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
 
   // ── Tournament payment proof ──────────────────────────────────────────────
   uploadPaymentProof: (tournamentId: string, regId: string, payload: { userId: string; paymentProof: string }) =>
