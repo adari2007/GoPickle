@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, setAuthToken, LeagueSummary, LeagueWeek, LeagueWeekResult, TournamentEvent, TournamentGroup, TournamentSubDivision, QpSession, QpMatch, QpStanding, QpPlacement } from "./lib/api";
-import { OrgBranding, clearSession, fileToDataUrl, saveSession } from "./lib/org";
+import { OrgBranding, applyBranding, clearSession, fileToDataUrl, saveSession } from "./lib/org";
 import { AdminPanel } from "./AdminPanel";
 import buddyIcon from "./assets/icon-buddy.svg";
 import clubIcon from "./assets/icon-club.svg";
@@ -342,6 +342,26 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
     if (initialUser) refreshAll(initialUser.id).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep branding/features fresh: re-fetch when the tab regains focus so a
+  // super admin's toggles or theme changes show up without a manual reload.
+  useEffect(() => {
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const fresh = await api.getOrgBranding(org.slug);
+        applyBranding(fresh);
+        setOrg(prev => ({ ...prev, name: fresh.name, logoUrl: fresh.logoUrl, theme: fresh.theme, features: fresh.features, settings: fresh.settings }));
+      } catch { /* transient network issues are fine */ }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org.slug]);
 
   // Org-configured default landing: jump to the active (or a specific)
   // tournament once after sign-in, when tournaments have loaded.

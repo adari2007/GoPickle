@@ -591,7 +591,7 @@ export const api = {
     request<{ message: string }>(`/quick-play/${id}`, { method: "DELETE", body: JSON.stringify({ organizerId }) }),
   // ── Organizations ─────────────────────────────────────────────────────────
   getOrgBranding: (slug: string) =>
-    request<{ slug: string; name: string; logoUrl: string | null; theme: { primary?: string; accent?: string; bg?: string; preset?: string }; features: { buddies: boolean; clubs: boolean; games: boolean; tournaments: boolean; leagues: boolean; quickPlay: boolean } }>(`/orgs/${slug}/branding`),
+    request<{ slug: string; name: string; logoUrl: string | null; theme: { primary?: string; accent?: string; bg?: string; preset?: string }; features: { buddies: boolean; clubs: boolean; games: boolean; tournaments: boolean; leagues: boolean; quickPlay: boolean }; settings?: { defaultTournamentMode?: "none" | "active" | "specific"; defaultTournamentId?: string | null } }>(`/orgs/${slug}/branding`),
 
   createOrg: (payload: { slug: string; name: string; logoUrl?: string; theme?: { primary?: string; accent?: string; bg?: string; preset?: string }; admin: { name: string; email?: string; phone?: string; password: string } }) =>
     request<{ org: any; user: { id: string; name: string; email?: string; phone?: string; role: string } }>("/orgs", { method: "POST", body: JSON.stringify(payload) }),
