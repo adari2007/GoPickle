@@ -18,7 +18,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
   const [defaultTid, setDefaultTid] = useState(org.settings?.defaultTournamentId ?? "");
   const [primary, setPrimary] = useState(org.theme.primary ?? "#ff4d8d");
   const [accent, setAccent] = useState(org.theme.accent ?? "#7c6bff");
-  const [bg, setBg] = useState(org.theme.bg ?? "#06091a");
+  const [bg, setBg] = useState(org.theme.bg ?? "#f4f6fb");
   const [members, setMembers] = useState<OrgUserInfo[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,0.45)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={onClose}>
       <div className="auth-card" style={{ maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <h2 className="auth-title">Organization settings</h2>
         <p className="auth-subtitle">Branding for {org.name}</p>
@@ -106,7 +106,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               {THEME_PRESETS.map(p => (
                 <button key={p.id} type="button"
-                  onClick={() => { setPrimary(p.primary); setAccent(p.accent); setBg(p.bg ?? "#06091a"); }}
+                  onClick={() => { setPrimary(p.primary); setAccent(p.accent); setBg(p.bg ?? "#f4f6fb"); }}
                   style={{ padding: "0.35rem 0.6rem", borderRadius: 8, cursor: "pointer", border: "1px solid var(--border)", background: `linear-gradient(135deg, ${p.primary}, ${p.accent})`, color: "#fff", fontWeight: 700, fontSize: "0.75rem" }}>
                   {p.label}
                 </button>

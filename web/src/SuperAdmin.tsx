@@ -330,7 +330,7 @@ export function SuperAdmin() {
                       </label>
                       <label style={{ fontSize: "0.75rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
                         Background
-                        <input type="color" value={o.theme?.bg ?? "#06091a"}
+                        <input type="color" value={o.theme?.bg ?? "#f4f6fb"}
                           onChange={e => patchOrg(o.slug, { theme: { ...o.theme, bg: e.target.value } })} />
                       </label>
                     </div>

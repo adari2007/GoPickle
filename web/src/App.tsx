@@ -1971,9 +1971,9 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                 {(user.duprId || user.duprRatingSingles != null || user.duprRatingDoubles != null || user.duprRatingMixed != null) && (
                   <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2, display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {user.duprId && <span style={{ color: "var(--text)" }}>ID: {user.duprId}</span>}
-                    {user.duprRatingSingles != null && <span style={{ color: "#f472b6", fontWeight: 600 }}>Singles ★ {user.duprRatingSingles}</span>}
-                    {user.duprRatingDoubles != null && <span style={{ color: "#f472b6", fontWeight: 600 }}>Doubles ★ {user.duprRatingDoubles}</span>}
-                    {user.duprRatingMixed != null && <span style={{ color: "#f472b6", fontWeight: 600 }}>Mixed ★ {user.duprRatingMixed}</span>}
+                    {user.duprRatingSingles != null && <span style={{ color: "#d6336c", fontWeight: 600 }}>Singles ★ {user.duprRatingSingles}</span>}
+                    {user.duprRatingDoubles != null && <span style={{ color: "#d6336c", fontWeight: 600 }}>Doubles ★ {user.duprRatingDoubles}</span>}
+                    {user.duprRatingMixed != null && <span style={{ color: "#d6336c", fontWeight: 600 }}>Mixed ★ {user.duprRatingMixed}</span>}
                   </div>
                 )}
               </div>
@@ -2588,13 +2588,13 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
 
                   {/* Winners Circle */}
                   {qp.status === "COMPLETED" && qp.placements.length > 0 && (
-                    <div className="glass-card" style={{ background: "linear-gradient(135deg, rgba(251,191,36,.08) 0%, rgba(124,107,255,.08) 100%)", border: "1px solid rgba(251,191,36,.25)", textAlign: "center" }}>
-                      <div style={{ fontWeight: 800, fontSize: "1rem", color: "#fbbf24", marginBottom: 16, letterSpacing: ".04em", textTransform: "uppercase" }}>🏆 Winners Circle</div>
+                    <div className="glass-card" style={{ background: "linear-gradient(135deg, rgba(251,191,36,.08) 0%, rgba(124,107,255,.08) 100%)", border: "1px solid rgba(180,83,9,.3)", textAlign: "center" }}>
+                      <div style={{ fontWeight: 800, fontSize: "1rem", color: "#b45309", marginBottom: 16, letterSpacing: ".04em", textTransform: "uppercase" }}>🏆 Winners Circle</div>
                       <div style={{ display: "flex", justifyContent: "center", gap: 20, flexWrap: "wrap" }}>
                         {qp.placements.map(p => (
                           <div key={p.position} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                             <span style={{ fontSize: "2rem" }}>{p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : "🥉"}</span>
-                            <span style={{ fontWeight: 700, fontSize: "0.9rem", color: p.position === 1 ? "#fbbf24" : p.position === 2 ? "#94a3b8" : "#cd7c2b" }}>{qpName(p.playerIds)}</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.9rem", color: p.position === 1 ? "#b45309" : p.position === 2 ? "#64748b" : "#cd7c2b" }}>{qpName(p.playerIds)}</span>
                             <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600 }}>{p.label}</span>
                           </div>
                         ))}
@@ -2605,7 +2605,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                   {/* Edit panel — players + settings (SETUP / SCHEDULED only) */}
                   {isOrganizer && (qp.status === "SETUP" || qp.status === "SCHEDULED") && qpEditSettings && (
                     <div className="glass-card" style={{ padding: "14px 16px" }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#b8acff", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 12 }}>✏ Edit Session</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#5b4bd6", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 12 }}>✏ Edit Session</div>
 
                       {/* Player list */}
                       <div style={{ marginBottom: 12 }}>
@@ -2618,7 +2618,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                             </span>
                           ))}
                           {qp.guestNames.map(g => (
-                            <span key={g.id} className="div-label-chip" style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(251,191,36,.1)", borderColor: "rgba(251,191,36,.3)", color: "#fbbf24" }}>
+                            <span key={g.id} className="div-label-chip" style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(251,191,36,.1)", borderColor: "rgba(251,191,36,.3)", color: "#b45309" }}>
                               {g.name} (guest)
                               <button style={{ all: "unset", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }} onClick={() => onQpRemoveGuest(g.id)}>×</button>
                             </span>
@@ -2787,12 +2787,12 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                           </button>
                         )}
                         {qp.status === "PLAYOFFS" && bothSemisConfirmed && !thirdPlaceMatch && (
-                          <button className="btn-sm" style={{ background: "rgba(148,163,184,.12)", border: "1px solid rgba(148,163,184,.25)", color: "#94a3b8" }} disabled={loading} onClick={onCreateQpThirdPlace}>
+                          <button className="btn-sm" style={{ background: "rgba(100,116,139,.1)", border: "1px solid rgba(148,163,184,.25)", color: "#64748b" }} disabled={loading} onClick={onCreateQpThirdPlace}>
                             🥉 Add 3rd Place Match
                           </button>
                         )}
                         {qp.status === "PLAYOFFS" && finalsConfirmed && (
-                          <button className="btn-sm" style={{ background: "rgba(251,191,36,.22)", border: "1px solid rgba(251,191,36,.45)", color: "#fbbf24", fontWeight: 800 }} disabled={loading} onClick={onDeclareQpWinner}>
+                          <button className="btn-sm" style={{ background: "rgba(251,191,36,.22)", border: "1px solid rgba(251,191,36,.45)", color: "#b45309", fontWeight: 800 }} disabled={loading} onClick={onDeclareQpWinner}>
                             🏆 Declare Winner
                           </button>
                         )}
@@ -2830,7 +2830,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                           {/* Regular rounds */}
                           {rounds.length > 0 && (
                             <>
-                              <div style={{ fontWeight: 700, color: "#b8acff", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>Round Robin</div>
+                              <div style={{ fontWeight: 700, color: "#5b4bd6", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>Round Robin</div>
                               {rounds.map(rnd => {
                                 const rndMatches = regMatches.filter(m => m.roundNumber === rnd);
                                 const playingIds = new Set(rndMatches.flatMap(m => [...m.team1Ids, ...m.team2Ids]));
@@ -2881,7 +2881,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                           {/* Playoffs */}
                           {playoffMatches.length > 0 && (
                             <div style={{ marginTop: 20 }}>
-                              <div style={{ fontWeight: 700, color: "#fbbf24", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>🏆 Playoffs</div>
+                              <div style={{ fontWeight: 700, color: "#b45309", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>🏆 Playoffs</div>
                               {[...new Set(playoffMatches.map(m => m.roundNumber))].sort((a, b) => a - b).map(rnd => (
                                 <div key={rnd}>
                                   <div className="match-round-label">{rnd === 1 ? "Semi-finals" : rnd === 3 ? "🥉 3rd Place Match" : "Final"}</div>
@@ -3197,7 +3197,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                         </div>
                         <div className="tourney-header-actions">
                           <span className={`badge ${t.status === "CANCELLED" ? "badge-cancelled" : t.status === "CLOSED" ? "badge-closed" : `badge-status-${t.status.toLowerCase()}`}`}>{t.status}</span>
-                          {t.isDuprReported && <span className="badge" style={{ background: "rgba(236,72,153,0.18)", border: "1px solid rgba(236,72,153,0.4)", color: "#f472b6", fontSize: "0.62rem" }}>DUPR</span>}
+                          {t.isDuprReported && <span className="badge" style={{ background: "rgba(236,72,153,0.18)", border: "1px solid rgba(236,72,153,0.4)", color: "#d6336c", fontSize: "0.62rem" }}>DUPR</span>}
                           {tournamentClub && <span className="badge badge-de" title={`Club: ${tournamentClub.name}`}>🏢 {tournamentClub.name}</span>}
                           {!myReg && t.status === "PLANNED" && (
                             isClubMember
@@ -3219,7 +3219,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                     {/* Cancelled banner */}
                     {t.status === "CANCELLED" && (
                       <div className="glass-card" style={{ borderColor: "rgba(239,68,68,.35)", background: "rgba(239,68,68,.06)", marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700, color: "#f87171", marginBottom: 6 }}>Tournament Cancelled</div>
+                        <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>Tournament Cancelled</div>
                         <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>{t.cancelledReason}</div>
                         {t.cancelledAt && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 4 }}>{new Date(t.cancelledAt).toLocaleString()}</div>}
                       </div>
@@ -3228,7 +3228,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                     {/* Closed / winners banner */}
                     {t.status === "CLOSED" && t.placements.length > 0 && (
                       <div className="glass-card" style={{ borderColor: "rgba(251,191,36,.35)", background: "rgba(251,191,36,.06)", marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700, color: "#fbbf24", marginBottom: 10 }}>Tournament Results</div>
+                        <div style={{ fontWeight: 700, color: "#b45309", marginBottom: 10 }}>Tournament Results</div>
                         {t.placements.map(p => {
                           const names = p.playerIds.map(id => {
                             const reg = t.registrations.find(r => r.playerId === id || r.partnerId === id);
@@ -3268,13 +3268,13 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                           )}
                           {/* Close tournament */}
                           {(t.status === "ACTIVE" || t.status === "COMPLETED") && (
-                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }} disabled={loading} onClick={() => { setShowCloseForm(v => !v); setShowCancelForm(false); }}>
+                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }} disabled={loading} onClick={() => { setShowCloseForm(v => !v); setShowCancelForm(false); }}>
                               🏆 Close & Declare Winners
                             </button>
                           )}
                           {/* Close Registration — always available while tournament is open */}
                           {!t.registrationClosed && (
-                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }}
+                            <button className="btn-sm" style={{ background: "rgba(217,119,6,.1)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }}
                               disabled={loading}
                               onClick={() => withError(async () => {
                                 await api.updateTournamentDetails(t.id, { organizerId: user.id, registrationClosed: true });
@@ -3285,7 +3285,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                           )}
                           {/* Open Registration — only when closed AND no division winners declared yet */}
                           {t.registrationClosed && t.placements.length === 0 && !["COMPLETED", "CLOSED"].includes(t.status) && (
-                            <button className="btn-sm" style={{ background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", color: "#4ade80" }}
+                            <button className="btn-sm" style={{ background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", color: "#15803d" }}
                               disabled={loading}
                               onClick={() => withError(async () => {
                                 await api.updateTournamentDetails(t.id, { organizerId: user.id, registrationClosed: false });
@@ -3295,12 +3295,12 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                             </button>
                           )}
                           {/* Register Player */}
-                          <button className="btn-sm" style={{ background: "rgba(124,107,255,.18)", border: "1px solid rgba(124,107,255,.35)", color: "#b8acff" }}
+                          <button className="btn-sm" style={{ background: "rgba(124,107,255,.18)", border: "1px solid rgba(124,107,255,.35)", color: "#5b4bd6" }}
                             onClick={() => { setShowOrgRegPanel(p => !p); setOrgRegTarget(null); setOrgRegQuery(""); setOrgRegResults([]); setOrgRegEventIds([]); setOrgRegAgeExpanded({}); }}>
                             👤 {showOrgRegPanel ? "Close" : "Register Player"}
                           </button>
                           {/* Cancel tournament */}
-                          <button className="btn-sm" style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", color: "#f87171" }} disabled={loading} onClick={() => { setShowCancelForm(v => !v); setShowCloseForm(false); }}>
+                          <button className="btn-sm" style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", color: "#dc2626" }} disabled={loading} onClick={() => { setShowCancelForm(v => !v); setShowCloseForm(false); }}>
                             ✕ Cancel Tournament
                           </button>
                         </div>
@@ -3411,7 +3411,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                   {types.length > 1 && (
                                                     <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                                                       {etLabel(evType)}
-                                                      {isGenderBlocked && <span style={{ fontSize: "0.62rem", color: "#f87171", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
+                                                      {isGenderBlocked && <span style={{ fontSize: "0.62rem", color: "#dc2626", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
                                                     </div>
                                                   )}
                                                   {/* Already-registered rows for this event type */}
@@ -3422,14 +3422,14 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                     const reg = myReg ?? asPartnerReg!;
                                                     return (
                                                       <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "5px 8px", background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 7 }}>
-                                                        <span style={{ fontSize: "0.75rem", color: "#4ade80", flex: 1 }}>
+                                                        <span style={{ fontSize: "0.75rem", color: "#15803d", flex: 1 }}>
                                                           {asPartnerReg
                                                             ? `✓ Enrolled as partner — ${ev.skillLevel} · ${abLabel(ev.ageBracket)} (w/ ${asPartnerReg.playerName})`
                                                             : `✓ Registered — ${ev.skillLevel} · ${abLabel(ev.ageBracket)}${myReg!.partnerName ? ` (w/ ${myReg!.partnerName})` : ""}`
                                                           }
                                                         </span>
                                                         {myReg && (
-                                                          <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#f87171", padding: "2px 8px" }}
+                                                          <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#dc2626", padding: "2px 8px" }}
                                                             disabled={loading} onClick={() => onOrgWithdrawRegistration(t.id, reg.id)}>
                                                             Withdraw
                                                           </button>
@@ -3462,7 +3462,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                             });
                                                           }}>
                                                           {abLabel(age)}
-                                                          {alreadyInAge && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                          {alreadyInAge && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                         </button>
                                                       );
                                                     })}
@@ -3497,7 +3497,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                                   });
                                                                 }}>
                                                                 {ev.skillLevel}
-                                                                {isAlreadyReg && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                                {isAlreadyReg && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                                 {isSel && !isAlreadyReg && <span style={{ marginLeft: 3, color: "#e879f9" }}>●</span>}
                                                               </button>
                                                             );
@@ -3607,14 +3607,14 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     const cats = [...new Set(orgRegEventIds.map(evCatLabel).filter(Boolean) as string[])];
                                     return (
                                       <div style={{ padding: "10px 12px", background: "rgba(236,72,153,0.06)", border: "1px solid rgba(236,72,153,0.2)", borderRadius: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f472b6", textTransform: "uppercase", letterSpacing: "0.05em" }}>DUPR Info <span style={{ color: "#f87171" }}>*</span></div>
+                                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#d6336c", textTransform: "uppercase", letterSpacing: "0.05em" }}>DUPR Info <span style={{ color: "#dc2626" }}>*</span></div>
                                         <div className="field" style={{ margin: 0 }}>
                                           <label style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 3 }}>DUPR ID</label>
                                           <input value={orgDuprId} onChange={e => setOrgDuprId(e.target.value)} placeholder="Player's DUPR ID" style={{ fontSize: "0.82rem" }} />
                                         </div>
                                         {cats.map(cat => (
                                           <div key={cat} className="field" style={{ margin: 0 }}>
-                                            <label style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 3 }}>{cat} DUPR Rating <span style={{ color: "#f87171" }}>*</span></label>
+                                            <label style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 3 }}>{cat} DUPR Rating <span style={{ color: "#dc2626" }}>*</span></label>
                                             <input type="number" min="0" max="8" step="0.01"
                                               value={orgDuprRatings[cat] ?? ""}
                                               onChange={e => setOrgDuprRatings(p => ({ ...p, [cat]: e.target.value }))}
@@ -3751,7 +3751,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                         {/* Close form */}
                         {showCloseForm && (
                           <form onSubmit={onCloseTournament} className="stack-form" style={{ marginTop: 16, borderTop: "1px solid rgba(251,191,36,.2)", paddingTop: 14 }}>
-                            <div style={{ fontWeight: 700, color: "#fbbf24", marginBottom: 10, fontSize: "0.85rem" }}>Declare Winners</div>
+                            <div style={{ fontWeight: 700, color: "#b45309", marginBottom: 10, fontSize: "0.85rem" }}>Declare Winners</div>
                             {placementInputs.map((p, i) => (
                               <div key={p.position} className="field-row" style={{ alignItems: "flex-end" }}>
                                 <div className="field" style={{ minWidth: 110 }}>
@@ -3775,7 +3775,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               </div>
                             ))}
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button type="submit" className="btn-sm" style={{ background: "rgba(251,191,36,.25)", border: "1px solid rgba(251,191,36,.4)", color: "#fbbf24" }} disabled={loading}>Close Tournament</button>
+                              <button type="submit" className="btn-sm" style={{ background: "rgba(180,83,9,.3)", border: "1px solid rgba(180,83,9,.4)", color: "#b45309" }} disabled={loading}>Close Tournament</button>
                               <button type="button" className="btn-sm" disabled={loading} onClick={() => setShowCloseForm(false)}>Cancel</button>
                             </div>
                           </form>
@@ -3783,14 +3783,14 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
 
                         {/* Cancel form */}
                         {showCancelForm && (
-                          <form onSubmit={onCancelTournament} className="stack-form" style={{ marginTop: 16, borderTop: "1px solid rgba(239,68,68,.2)", paddingTop: 14 }}>
-                            <div style={{ fontWeight: 700, color: "#f87171", marginBottom: 8, fontSize: "0.85rem" }}>Cancel Tournament</div>
+                          <form onSubmit={onCancelTournament} className="stack-form" style={{ marginTop: 16, borderTop: "1px solid rgba(220,38,38,.1)", paddingTop: 14 }}>
+                            <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 8, fontSize: "0.85rem" }}>Cancel Tournament</div>
                             <div className="field">
                               <label>Reason (required)</label>
                               <input placeholder="e.g. Venue unavailable, insufficient registrations…" value={cancelReason} onChange={e => setCancelReason(e.target.value)} autoFocus />
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button type="submit" className="btn-sm" style={{ background: "rgba(239,68,68,.2)", border: "1px solid rgba(239,68,68,.4)", color: "#f87171" }} disabled={loading || !cancelReason.trim()}>Confirm Cancellation</button>
+                              <button type="submit" className="btn-sm" style={{ background: "rgba(220,38,38,.1)", border: "1px solid rgba(220,38,38,.35)", color: "#dc2626" }} disabled={loading || !cancelReason.trim()}>Confirm Cancellation</button>
                               <button type="button" className="btn-sm" disabled={loading} onClick={() => setShowCancelForm(false)}>Dismiss</button>
                             </div>
                           </form>
@@ -3888,7 +3888,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               </li>}
                               <li style={{ background: "none", border: "none", padding: "4px 0" }}>
                                 <span className="entity-sub" style={{ minWidth: 90 }}>Registration</span>
-                                <span className="entity-name" style={{ color: t.registrationClosed ? "#f59e0b" : "#4ade80" }}>
+                                <span className="entity-name" style={{ color: t.registrationClosed ? "#f59e0b" : "#15803d" }}>
                                   {t.registrationClosed ? "🔒 Closed" : "🔓 Open"}
                                 </span>
                               </li>
@@ -3961,11 +3961,11 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                             {types.length > 1 && (
                                               <div style={{ fontSize: "0.8rem", color: isGenderBlocked ? "var(--muted)" : "var(--muted)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                                                 {etLabel(evType)}
-                                                {isGenderBlocked && <span style={{ fontSize: "0.68rem", color: "#f87171", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
+                                                {isGenderBlocked && <span style={{ fontSize: "0.68rem", color: "#dc2626", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
                                               </div>
                                             )}
                                             {!types.length || types.length === 1 ? isGenderBlocked && (
-                                              <div style={{ fontSize: "0.72rem", color: "#f87171", marginBottom: 6 }}>Not available — gender conflict with current selection</div>
+                                              <div style={{ fontSize: "0.72rem", color: "#dc2626", marginBottom: 6 }}>Not available — gender conflict with current selection</div>
                                             ) : null}
                                             {/* Already-registered rows with withdraw */}
                                             {typeEvents.map(ev => {
@@ -3975,7 +3975,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                               if (asPartnerReg) {
                                                 return (
                                                   <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "5px 8px", background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 7 }}>
-                                                    <span style={{ fontSize: "0.75rem", color: "#4ade80", flex: 1 }}>
+                                                    <span style={{ fontSize: "0.75rem", color: "#15803d", flex: 1 }}>
                                                       ✓ Enrolled as partner — {ev.skillLevel} · {abLabel(ev.ageBracket)} (w/ {asPartnerReg.playerName})
                                                     </span>
                                                   </div>
@@ -3984,11 +3984,11 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                               const pastDeadline = t.withdrawDeadline ? new Date() > new Date(t.withdrawDeadline) : false;
                                               return (
                                                 <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "5px 8px", background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 7 }}>
-                                                  <span style={{ fontSize: "0.75rem", color: "#4ade80", flex: 1 }}>
+                                                  <span style={{ fontSize: "0.75rem", color: "#15803d", flex: 1 }}>
                                                     ✓ Registered — {ev.skillLevel} · {abLabel(ev.ageBracket)}{myReg!.partnerName ? ` (w/ ${myReg!.partnerName})` : ""}
                                                   </span>
                                                   {!pastDeadline && t.status === "PLANNED" && (
-                                                    <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#f87171", padding: "2px 8px" }}
+                                                    <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#dc2626", padding: "2px 8px" }}
                                                       disabled={loading} onClick={() => onUnregister(t.id, myReg!.id)}>
                                                       Withdraw
                                                     </button>
@@ -4034,7 +4034,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                       });
                                                     }}>
                                                     {abLabel(age)}
-                                                    {alreadyInAge && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                    {alreadyInAge && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                   </button>
                                                 );
                                               })}
@@ -4070,7 +4070,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                             });
                                                           }}>
                                                           {ev.skillLevel}
-                                                          {alreadyReg && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                          {alreadyReg && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                         </button>
                                                       );
                                                     })}
@@ -4122,7 +4122,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                             </div>
                                                             <div className="field" style={{ margin: 0 }}>
                                                               <label>
-                                                                {partner.name}'s DUPR ID{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                                                {partner.name}'s DUPR ID{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                                               </label>
                                                               <div className="field-icon">
                                                                 <span className="icon-adorn icon-adorn-pink">
@@ -4137,7 +4137,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                             </div>
                                                             <div className="field" style={{ margin: 0 }}>
                                                               <label>
-                                                                {partner.name}'s {etLabel(selEv.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                                                {partner.name}'s {etLabel(selEv.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                                               </label>
                                                               <div className="field-icon">
                                                                 <span className="icon-adorn icon-adorn-pink">
@@ -4191,7 +4191,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                                   <div className="field">
                                     <label>
-                                      Your DUPR ID {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                      Your DUPR ID {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                     </label>
                                     <div className="field-icon">
                                       <span className="icon-adorn icon-adorn-pink">
@@ -4282,13 +4282,13 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                             return (
                               <div className="glass-card">
                                 {t.isDuprReported && (
-                                  <div style={{ marginBottom: 6, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#f472b6" }}>
+                                  <div style={{ marginBottom: 6, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#d6336c" }}>
                                     DUPR Reported — DUPR ID and Rating required
                                   </div>
                                 )}
                                 <div className="field" style={{ marginBottom: 8 }}>
                                   <label>
-                                    Your DUPR ID {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                    Your DUPR ID {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                   </label>
                                   <div className="field-icon">
                                     <span className="icon-adorn icon-adorn-pink">
@@ -4303,7 +4303,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                 </div>
                                 <div className="field" style={{ marginBottom: 8 }}>
                                   <label>
-                                    Your Singles DUPR Rating {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                    Your Singles DUPR Rating {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                   </label>
                                   <div className="field-icon">
                                     <span className="icon-adorn icon-adorn-pink">
@@ -4322,7 +4322,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                             <div className="glass-card">
                               <h3 className="card-title">Register with Partner</h3>
                               {t.isDuprReported && (
-                                <div style={{ marginBottom: 10, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#f472b6" }}>
+                                <div style={{ marginBottom: 10, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#d6336c" }}>
                                   DUPR Reported — DUPR ID and Rating required for you{selectedPartner ? " and your partner" : ""}
                                 </div>
                               )}
@@ -4368,7 +4368,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               )}
                               <div className="field" style={{ marginTop: 10, marginBottom: 4 }}>
                                 <label>
-                                  Your DUPR ID {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                  Your DUPR ID {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                 </label>
                                 <div className="field-icon">
                                   <span className="icon-adorn icon-adorn-pink">
@@ -4383,7 +4383,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               </div>
                               <div className="field" style={{ marginBottom: 4 }}>
                                 <label>
-                                  Your {etLabel(t.eventType)} DUPR Rating {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                  Your {etLabel(t.eventType)} DUPR Rating {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                 </label>
                                 <div className="field-icon">
                                   <span className="icon-adorn icon-adorn-pink">
@@ -4401,7 +4401,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                   </div>
                                   <div className="field" style={{ margin: 0 }}>
                                     <label>
-                                      DUPR ID{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                      DUPR ID{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                     </label>
                                     <div className="field-icon">
                                       <span className="icon-adorn icon-adorn-pink">
@@ -4413,7 +4413,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                   </div>
                                   <div className="field" style={{ margin: 0 }}>
                                     <label>
-                                      {etLabel(t.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                      {etLabel(t.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                     </label>
                                     <div className="field-icon">
                                       <span className="icon-adorn icon-adorn-pink">
@@ -4489,12 +4489,12 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                     <span key={reg.id} style={{ fontSize: "0.72rem", background: "rgba(124,107,255,.12)", border: "1px solid rgba(124,107,255,.3)", borderRadius: 6, padding: "2px 7px", color: "var(--text)", display: "flex", alignItems: "center", gap: 4 }}>
                                                       {ev ? `${etLabel(ev.eventType)} · ${ev.skillLevel} · ${abLabel(ev.ageBracket)}` : "General"}
                                                       {coPlayerName && <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>w/ {coPlayerName}</span>}
-                                                      {!isAsPartner && reg.playerDuprRating !== undefined && <span style={{ color: "#f472b6", fontWeight: 600 }}>★{reg.playerDuprRating}</span>}
-                                                      {isAsPartner && reg.partnerDuprRating !== undefined && <span style={{ color: "#f472b6", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
+                                                      {!isAsPartner && reg.playerDuprRating !== undefined && <span style={{ color: "#d6336c", fontWeight: 600 }}>★{reg.playerDuprRating}</span>}
+                                                      {isAsPartner && reg.partnerDuprRating !== undefined && <span style={{ color: "#d6336c", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
                                                       {reg.status === "PENDING_PARTNER" && <span style={{ color: "#f59e0b", fontSize: "0.65rem" }}>⏳</span>}
-                                                      {reg.status === "CONFIRMED" && <span style={{ color: "#4ade80", fontSize: "0.65rem" }}>✓</span>}
+                                                      {reg.status === "CONFIRMED" && <span style={{ color: "#15803d", fontSize: "0.65rem" }}>✓</span>}
                                                       {isOrganizer && (
-                                                        <button style={{ marginLeft: 2, padding: "0 4px", fontSize: "0.65rem", background: "rgba(248,113,113,0.15)", border: "none", borderRadius: 3, color: "#f87171", cursor: "pointer", lineHeight: "14px" }}
+                                                        <button style={{ marginLeft: 2, padding: "0 4px", fontSize: "0.65rem", background: "rgba(248,113,113,0.15)", border: "none", borderRadius: 3, color: "#dc2626", cursor: "pointer", lineHeight: "14px" }}
                                                           disabled={loading} title="Withdraw this registration"
                                                           onClick={() => onOrgWithdrawRegistration(t.id, reg.id)}>✕</button>
                                                       )}
@@ -4514,21 +4514,21 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                 return (
                                                   <>
                                                     <span className="badge" style={{
-                                                      background: ps === "APPROVED" ? "rgba(74,222,128,.15)" : ps === "PENDING" ? "rgba(251,191,36,.15)" : "rgba(148,163,184,.12)",
-                                                      border: `1px solid ${ps === "APPROVED" ? "rgba(74,222,128,.4)" : ps === "PENDING" ? "rgba(251,191,36,.4)" : "rgba(148,163,184,.3)"}`,
-                                                      color: ps === "APPROVED" ? "#4ade80" : ps === "PENDING" ? "#fbbf24" : "var(--muted)"
+                                                      background: ps === "APPROVED" ? "rgba(22,163,74,.1)" : ps === "PENDING" ? "rgba(217,119,6,.1)" : "rgba(100,116,139,.1)",
+                                                      border: `1px solid ${ps === "APPROVED" ? "rgba(22,163,74,.35)" : ps === "PENDING" ? "rgba(217,119,6,.35)" : "rgba(100,116,139,.3)"}`,
+                                                      color: ps === "APPROVED" ? "#15803d" : ps === "PENDING" ? "#b45309" : "var(--muted)"
                                                     }}>
                                                       {ps === "APPROVED" ? "💰 Paid" : ps === "PENDING" ? "💰 Proof pending" : "💰 No proof"}
                                                     </span>
                                                     {isOrganizer && ps === "PENDING" && ownReg.hasPaymentProof && (
                                                       <div style={{ display: "flex", gap: 4 }}>
                                                         <button className="btn-sm" onClick={() => onViewPaymentProof(t.id, ownReg.id)}>View</button>
-                                                        <button className="btn-sm" style={{ color: "#4ade80" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Approve</button>
-                                                        <button className="btn-sm" style={{ color: "#f87171" }} onClick={() => onReviewPayment(t.id, ownReg.id, "REJECT")}>Reject</button>
+                                                        <button className="btn-sm" style={{ color: "#15803d" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Approve</button>
+                                                        <button className="btn-sm" style={{ color: "#dc2626" }} onClick={() => onReviewPayment(t.id, ownReg.id, "REJECT")}>Reject</button>
                                                       </div>
                                                     )}
                                                     {isOrganizer && ps === "NONE" && (
-                                                      <button className="btn-sm" style={{ color: "#4ade80" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Mark paid</button>
+                                                      <button className="btn-sm" style={{ color: "#15803d" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Mark paid</button>
                                                     )}
                                                   </>
                                                 );
@@ -4551,8 +4551,8 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                     <span key={reg.id} style={{ fontSize: "0.72rem", background: "rgba(124,107,255,.12)", border: "1px solid rgba(124,107,255,.3)", borderRadius: 6, padding: "2px 7px", color: "var(--text)", display: "flex", alignItems: "center", gap: 4 }}>
                                                       {ev ? `${etLabel(ev.eventType)} · ${ev.skillLevel} · ${abLabel(ev.ageBracket)}` : "General"}
                                                       <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>w/ {reg.playerName}</span>
-                                                      {reg.partnerDuprRating !== undefined && <span style={{ color: "#f472b6", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
-                                                      <span style={{ color: "#4ade80", fontSize: "0.65rem" }}>✓</span>
+                                                      {reg.partnerDuprRating !== undefined && <span style={{ color: "#d6336c", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
+                                                      <span style={{ color: "#15803d", fontSize: "0.65rem" }}>✓</span>
                                                     </span>
                                                   );
                                                 })}
@@ -4635,7 +4635,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               )}
                               {isOrganizer && activeDivision && divRegs.length === 0 && divMatches.length === 0 && (
                                 <div style={{ marginTop: 8 }}>
-                                  <button className="btn-ghost" style={{ color: "#f87171", fontSize: "0.75rem" }}
+                                  <button className="btn-ghost" style={{ color: "#dc2626", fontSize: "0.75rem" }}
                                     onClick={() => onRemoveDivision(t.id, activeDivision.id)}>
                                     Remove selected division ({etLabel(activeDivision.eventType)} · {activeDivision.skillLevel}) — it has no registrations
                                   </button>
@@ -4697,7 +4697,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                             <>
                               {/* Per-division header */}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "2px 0" }}>
-                                <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#b8acff" }}>
+                                <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#5b4bd6" }}>
                                   {etLabel(activeDivision.eventType)} · {activeDivision.skillLevel} · {abLabel(activeDivision.ageBracket)}
                                 </span>
                                 <span className="entity-sub" style={{ fontSize: "0.72rem" }}>{divRegs.length} confirmed</span>
@@ -4769,7 +4769,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                           style={{ fontSize: "0.7rem", background: showGroupsPanel ? "rgba(124,107,255,.25)" : undefined }}
                                           onClick={() => setShowGroupsPanel(p => !p)}>
                                           🗂 Groups {showGroupsPanel ? "▲" : "▼"}
-                                          {groupsFinalized && <span style={{ marginLeft: 6, fontSize: "0.65rem", color: "#4ade80", fontWeight: 700 }}>✓ Finalized</span>}
+                                          {groupsFinalized && <span style={{ marginLeft: 6, fontSize: "0.65rem", color: "#15803d", fontWeight: 700 }}>✓ Finalized</span>}
                                         </button>
                                         {showGroupsPanel && (
                                           <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", background: "rgba(124,107,255,0.05)", border: "1px solid rgba(124,107,255,0.2)", borderRadius: 9 }}>
@@ -4788,7 +4788,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                             </div>
                                             {!groupsFinalized && (
                                               <button className="btn-sm"
-                                                style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700 }}
+                                                style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700 }}
                                                 disabled={loading || unassignedRegs.length > 0}
                                                 onClick={async () => { await withError(async () => { await api.finalizeGroups(t.id, activeDivId!, user!.id); await selectTournament(t.id); }); }}>
                                                 ✓ Finalize Groups
@@ -4796,7 +4796,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                               </button>
                                             )}
                                             {groupsFinalized && (
-                                              <span style={{ fontSize: "0.72rem", color: "#4ade80", fontWeight: 600 }}>✓ Groups finalized — schedule can now be generated below.</span>
+                                              <span style={{ fontSize: "0.72rem", color: "#15803d", fontWeight: 600 }}>✓ Groups finalized — schedule can now be generated below.</span>
                                             )}
                                           </div>
                                         )}
@@ -4825,7 +4825,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     {divScheduleMatches.length > 0 && !scheduleFinalized && (
                                       <div style={{ marginBottom: 10 }}>
                                         <button className="btn-sm"
-                                          style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700 }}
+                                          style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700 }}
                                           disabled={loading}
                                           onClick={async () => { await withError(async () => { await api.finalizeSchedule(t.id, activeDivId!, user!.id); await selectTournament(t.id); }); }}>
                                           🗓 Publish Schedule to Participants
@@ -4860,20 +4860,20 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                       return (
                                         <div className="organizer-controls" style={{ flexWrap: "wrap" }}>
                                           {!isFinalized && allConfirmed && (
-                                            <button className="btn-sm" style={{ background: "rgba(74,222,128,.18)", border: "1px solid rgba(74,222,128,.35)", color: "#4ade80" }}
+                                            <button className="btn-sm" style={{ background: "rgba(74,222,128,.18)", border: "1px solid rgba(74,222,128,.35)", color: "#15803d" }}
                                               disabled={loading}
                                               onClick={async () => { await withError(async () => { await api.finalizeRR(t.id, activeDivId!, user!.id); await selectTournament(t.id); }); }}>
                                               ✓ Finalize Round Robin
                                             </button>
                                           )}
                                           {isFinalized && canSubDivide && (
-                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }}
+                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }}
                                               disabled={loading} onClick={() => onCreateSubDivisions(t.id, activeDivId!)}>
                                               🏆 {divSubDivs.length > 0 ? "Re-create" : "Create"} Sub-Divisions
                                             </button>
                                           )}
                                           {(isFinalized || noGroupsPlayoffReady) && !canSubDivide && (
-                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }}
+                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }}
                                               disabled={loading} onClick={() => onCreatePlayoffs(t.id, activeDivId!)}>
                                               🏆 {divPlayoffMatches.length > 0 ? "Re-create" : "Create"} Play Offs
                                             </button>
@@ -4912,7 +4912,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                   ) : (
                                     <>
                                     {isOrganizer && !divScheduleFinalized && (
-                                      <div style={{ margin: "0 0 10px", padding: "8px 12px", background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 8, fontSize: "0.72rem", color: "#fbbf24", fontWeight: 600 }}>
+                                      <div style={{ margin: "0 0 10px", padding: "8px 12px", background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 8, fontSize: "0.72rem", color: "#b45309", fontWeight: 600 }}>
                                         Draft — not yet visible to participants. Click "Publish Schedule" in Division Controls to share.
                                       </div>
                                     )}
@@ -4974,7 +4974,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                           const rounds = [...new Set(gMatches.map(m => m.roundNumber))].sort((a,b) => a-b);
                                           return (
                                             <div key={group.id} style={{ marginBottom: 16 }}>
-                                              <div className="match-round-label" style={{ color: "#b8acff" }}>{group.name}</div>
+                                              <div className="match-round-label" style={{ color: "#5b4bd6" }}>{group.name}</div>
                                               {rounds.map(round => (
                                                 <div key={round}>
                                                   <div className="match-round-label" style={{ fontSize: "0.68rem", color: "var(--muted)", paddingLeft: 4 }}>Round {round}</div>
@@ -5033,7 +5033,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     return (
                                       <div key={group.id} className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
-                                          <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#b8acff" }}>{group.name}</div>
+                                          <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#5b4bd6" }}>{group.name}</div>
                                           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                             {groupMatches.length > 0 && <span className="entity-sub" style={{ fontSize: "0.72rem" }}>{confirmedGroupMatches}/{groupMatches.length} scored</span>}
                                           </div>
@@ -5090,7 +5090,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     return (
                                       <div key={sd.id} className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
-                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#fbbf24" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
+                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#b45309" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             <span className="entity-sub" style={{ fontSize: "0.72rem" }}>{sd.members.length} players</span>
                                             {isOrganizer && sd.members.length >= 2 && (
@@ -5105,8 +5105,8 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                           {sd.members.map(m => {
                                             const reg = t.registrations.find(r => r.id === m.registrationId);
                                             return (
-                                              <span key={m.registrationId} style={{ fontSize: "0.75rem", background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", borderRadius: 8, padding: "2px 8px" }}>
-                                                <span style={{ color: "#fbbf24", fontWeight: 700, marginRight: 4 }}>#{m.seed}</span>
+                                              <span key={m.registrationId} style={{ fontSize: "0.75rem", background: "rgba(251,191,36,.08)", border: "1px solid rgba(180,83,9,.3)", borderRadius: 8, padding: "2px 8px" }}>
+                                                <span style={{ color: "#b45309", fontWeight: 700, marginRight: 4 }}>#{m.seed}</span>
                                                 {reg ? (reg.playerName + (reg.partnerName ? ` & ${reg.partnerName}` : "")) : m.registrationId.slice(-4)}
                                               </span>
                                             );
@@ -5147,17 +5147,17 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     return (
                                       <div className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#f472b6" }}>🏆 Play Offs</div>
+                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#d6336c" }}>🏆 Play Offs</div>
                                           {isOrganizer && (
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                               {sfAllConfirmed && !thirdPlaceMatch && (
-                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#b8acff" }}
+                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#5b4bd6" }}
                                                   disabled={loading} onClick={() => onCreateThirdPlaceMatch(t.id, activeDivId!)}>
                                                   + 3rd Place Match
                                                 </button>
                                               )}
                                               {finalConfirmed && divWinners.length === 0 && (
-                                                <button className="btn-sm" style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700, fontSize: "0.7rem" }}
+                                                <button className="btn-sm" style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700, fontSize: "0.7rem" }}
                                                   disabled={loading} onClick={() => onDeclareWinners(t.id, activeDivId!)}>
                                                   🏅 Declare Winners
                                                 </button>
@@ -5168,7 +5168,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                         <div style={{ borderTop: "1px solid rgba(244,114,182,.15)", paddingTop: 8 }}>
                                           {rounds.map(rnd => (
                                             <div key={rnd}>
-                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#f472b6" }}>{roundLabel(rnd)}</div>
+                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#d6336c" }}>{roundLabel(rnd)}</div>
                                               {divPlayoffMatches.filter(m => m.roundNumber === rnd).map(m => {
                                                 if (m.team1Ids.length === 0 && m.team2Ids.length === 0) {
                                                   return (
@@ -5223,7 +5223,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                         {/* 3rd place match */}
                                         {thirdPlaceMatch && (
                                           <div style={{ marginTop: 12, borderTop: "1px solid rgba(244,114,182,.1)", paddingTop: 10 }}>
-                                            <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#f472b6" }}>🥉 3rd Place Match</div>
+                                            <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#d6336c" }}>🥉 3rd Place Match</div>
                                             {thirdPlaceMatch.team1Ids.length === 0 ? (
                                               <div className="match-row"><div className="match-teams" style={{ color: "var(--muted)", fontStyle: "italic" }}>TBD vs TBD</div></div>
                                             ) : (() => {
@@ -5272,7 +5272,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                         {/* Declared winners summary */}
                                         {divWinners.length > 0 && (
                                           <div style={{ marginTop: 12, borderTop: "1px solid rgba(244,114,182,.1)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f472b6", textTransform: "uppercase", letterSpacing: ".06em" }}>Division Results</div>
+                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#d6336c", textTransform: "uppercase", letterSpacing: ".06em" }}>Division Results</div>
                                             {divWinners.map(p => (
                                               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                 <span style={{ fontSize: "1rem" }}>{p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : "🥉"}</span>
@@ -5308,17 +5308,17 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     return (
                                       <div key={sd.id} className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#fbbf24" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
+                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#b45309" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
                                           {isOrganizer && (
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                               {sfAllConfirmed && !sdThirdPlaceMatch && (
-                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#b8acff" }}
+                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#5b4bd6" }}
                                                   disabled={loading} onClick={() => onCreateSubDivThirdPlaceMatch(t.id, sd.id)}>
                                                   + 3rd Place Match
                                                 </button>
                                               )}
                                               {sdFinalConfirmed && sdWinners.length === 0 && (
-                                                <button className="btn-sm" style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700, fontSize: "0.7rem" }}
+                                                <button className="btn-sm" style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700, fontSize: "0.7rem" }}
                                                   disabled={loading} onClick={() => onDeclareSubDivWinners(t.id, sd.id)}>
                                                   🏅 Declare Winners
                                                 </button>
@@ -5329,7 +5329,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                         <div style={{ borderTop: "1px solid rgba(251,191,36,.15)", paddingTop: 8 }}>
                                             {rounds.map(rnd => (
                                               <div key={rnd}>
-                                                <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#fbbf24" }}>{roundLabel(rnd)}</div>
+                                                <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#b45309" }}>{roundLabel(rnd)}</div>
                                                 {sdMatches.filter(m => m.roundNumber === rnd).map(m => {
                                                   if (m.team1Ids.length === 0 && m.team2Ids.length === 0) {
                                                     return (
@@ -5390,7 +5390,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                           const canEdit = isOrganizer && m.status === "CONFIRMED";
                                           return (
                                             <div style={{ marginTop: 12, borderTop: "1px solid rgba(251,191,36,.1)", paddingTop: 10 }}>
-                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#fbbf24" }}>🥉 3rd Place Match</div>
+                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#b45309" }}>🥉 3rd Place Match</div>
                                               {m.team1Ids.length === 0 ? (
                                                 <div className="match-row"><div className="match-teams" style={{ color: "var(--muted)", fontStyle: "italic" }}>TBD vs TBD</div></div>
                                               ) : (
@@ -5433,7 +5433,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                         {/* Declared winners summary */}
                                         {sdWinners.length > 0 && (
                                           <div style={{ marginTop: 12, borderTop: "1px solid rgba(251,191,36,.1)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#fbbf24", textTransform: "uppercase", letterSpacing: ".06em" }}>Results</div>
+                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: ".06em" }}>Results</div>
                                             {sdWinners.map(p => (
                                               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                 <span style={{ fontSize: "1rem" }}>{p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : "🥉"}</span>
@@ -5480,7 +5480,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                 <div style={{ flex: 1, minWidth: 120 }}>
                                                   <div className="entity-name">
                                                     {reg.teamName ? (
-                                                      <span style={{ fontWeight: 700, color: "#b8acff" }}>{reg.teamName}</span>
+                                                      <span style={{ fontWeight: 700, color: "#5b4bd6" }}>{reg.teamName}</span>
                                                     ) : (
                                                       reg.partnerName ? `${reg.playerName} & ${reg.partnerName}` : reg.playerName
                                                     )}
@@ -5516,7 +5516,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                   {reg.status === "CONFIRMED" ? "Confirmed" : "Pending"}
                                                 </span>
                                                 {(reg.playerDuprRating !== undefined || reg.partnerDuprRating !== undefined) && (
-                                                  <span className="badge badge-rr" style={{ marginTop: 2, fontSize: "0.65rem", background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.35)", color: "#f472b6" }}>
+                                                  <span className="badge badge-rr" style={{ marginTop: 2, fontSize: "0.65rem", background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.35)", color: "#d6336c" }}>
                                                     ★ {reg.playerDuprRating ?? "—"}{reg.partnerDuprRating !== undefined ? ` / ${reg.partnerDuprRating}` : ""}
                                                   </span>
                                                 )}
@@ -5537,7 +5537,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                           }
                                                         }}>✎ Edit Team</button>
                                                     )}
-                                                    <button style={{ marginLeft: 4, padding: "2px 7px", fontSize: "0.72rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, color: "#f87171", cursor: "pointer", marginTop: 2 }}
+                                                    <button style={{ marginLeft: 4, padding: "2px 7px", fontSize: "0.72rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, color: "#dc2626", cursor: "pointer", marginTop: 2 }}
                                                       disabled={loading} title="Withdraw this registration"
                                                       onClick={() => onOrgWithdrawRegistration(t.id, reg.id)}>✕</button>
                                                   </>
@@ -5584,7 +5584,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                         <label style={{ fontSize: "0.73rem", color: "var(--muted)" }}>Partner (currently: {reg.partnerName ?? "None"})</label>
                                                         {memberRemovePartner ? (
                                                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                                            <span style={{ fontSize: "0.78rem", color: "#f87171" }}>Partner will be removed</span>
+                                                            <span style={{ fontSize: "0.78rem", color: "#dc2626" }}>Partner will be removed</span>
                                                             <button style={{ fontSize: "0.68rem", background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}
                                                               onClick={() => setMemberRemovePartner(false)}>Undo</button>
                                                           </div>
@@ -5616,7 +5616,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                               </div>
                                                             )}
                                                             {reg.partnerName && (
-                                                              <button style={{ fontSize: "0.68rem", color: "#f87171", background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginTop: 2 }}
+                                                              <button style={{ fontSize: "0.68rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginTop: 2 }}
                                                                 onClick={() => { setMemberRemovePartner(true); setMemberPartnerQuery(""); setMemberPartnerResults([]); }}>
                                                                 Remove partner
                                                               </button>
@@ -5698,7 +5698,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     const rows = computeStandings(groupMatches, groupRegs);
                                     return (
                                       <div key={group.id} style={{ marginBottom: 20 }}>
-                                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#b8acff", marginBottom: 8 }}>{group.name}</div>
+                                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#5b4bd6", marginBottom: 8 }}>{group.name}</div>
                                         {rows.length === 0
                                           ? <p className="empty-state" style={{ fontSize: "0.8rem" }}>No results yet.</p>
                                           : (
@@ -5709,7 +5709,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                                   <tr key={i}>
                                                     <td className={`rank-cell rank-${i + 1}`}>{i + 1}</td>
                                                     <td className="entity-name">{row.names}</td>
-                                                    <td style={{ color: "#f472b6", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
+                                                    <td style={{ color: "#d6336c", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
                                                     <td>{row.wins}</td>
                                                     <td>{row.losses}</td>
                                                     <td style={{ fontWeight: 700, color: "var(--pink)" }}>{row.wins * 2}</td>
@@ -5733,7 +5733,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                             <tr key={i}>
                                               <td className={`rank-cell rank-${i + 1}`}>{i + 1}</td>
                                               <td className="entity-name">{row.names}</td>
-                                              <td style={{ color: "#f472b6", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
+                                              <td style={{ color: "#d6336c", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
                                               <td>{row.wins}</td>
                                               <td>{row.losses}</td>
                                               <td style={{ fontWeight: 700, color: "var(--pink)" }}>{row.wins * 2}</td>
@@ -5788,7 +5788,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
 
                           return (
                             <div key={ev.id} className="glass-card" style={{ padding: "14px 16px" }}>
-                              <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#b8acff", marginBottom: 12 }}>
+                              <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#5b4bd6", marginBottom: 12 }}>
                                 {etLabel(ev.eventType)} · {ev.skillLevel} · {abLabel(ev.ageBracket)}
                               </div>
                               {/* Playoff winners */}
@@ -5800,7 +5800,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               {/* Sub-division winners, one section per sub-division */}
                               {sdPlacements.map(({ sd, placements: sdp }) => (
                                 <div key={sd.id} style={{ marginBottom: 10 }}>
-                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#fbbf24", marginBottom: 6 }}>{TIER_LABELS_W[sd.tier] ?? sd.tier}</div>
+                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#b45309", marginBottom: 6 }}>{TIER_LABELS_W[sd.tier] ?? sd.tier}</div>
                                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                     {sdp.map(placementRow)}
                                   </div>
@@ -5835,7 +5835,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
 
                     {/* Payment proof viewer (organizer) */}
                     {proofViewer && (
-                      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }} onClick={() => setProofViewer(null)}>
+                      <div style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,0.55)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }} onClick={() => setProofViewer(null)}>
                         <img src={proofViewer} alt="Payment proof" style={{ maxWidth: "90vw", maxHeight: "85vh", borderRadius: 12 }} onClick={e => e.stopPropagation()} />
                       </div>
                     )}
@@ -6237,7 +6237,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                               <div className="invite-section-divider"><span>Court Assignments & Scores</span></div>
                               {courts.map(court => (
                                 <div key={court} style={{ marginBottom: 16 }}>
-                                  <div style={{ fontWeight: 700, color: "#b8acff", marginBottom: 8 }}>Court {court}</div>
+                                  <div style={{ fontWeight: 700, color: "#5b4bd6", marginBottom: 8 }}>Court {court}</div>
                                   <ul className="entity-list">
                                     {weekResults.filter(r => r.court === court).map(r => (
                                       <li key={r.id}>

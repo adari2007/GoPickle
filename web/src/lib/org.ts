@@ -49,11 +49,11 @@ export function fileToDataUrl(file: File, maxBytes: number): Promise<string> {
 }
 
 export const THEME_PRESETS: { id: string; label: string; primary: string; accent: string; bg?: string }[] = [
-  { id: "pickle", label: "Pickle",  primary: "#ff4d8d", accent: "#7c6bff" },
-  { id: "ocean",  label: "Ocean",   primary: "#0ea5e9", accent: "#6366f1", bg: "#04121f" },
-  { id: "forest", label: "Forest",  primary: "#22c55e", accent: "#14b8a6", bg: "#06140b" },
-  { id: "sunset", label: "Sunset",  primary: "#f97316", accent: "#ef4444", bg: "#170a06" },
-  { id: "slate",  label: "Slate",   primary: "#94a3b8", accent: "#64748b", bg: "#0b0f16" },
+  { id: "pickle", label: "Pickle",  primary: "#e0447e", accent: "#6d5ce6", bg: "#f4f6fb" },
+  { id: "ocean",  label: "Ocean",   primary: "#0284c7", accent: "#4f46e5", bg: "#f0f7fc" },
+  { id: "forest", label: "Forest",  primary: "#16a34a", accent: "#0d9488", bg: "#f1f8f3" },
+  { id: "sunset", label: "Sunset",  primary: "#ea580c", accent: "#dc2626", bg: "#fdf5f0" },
+  { id: "slate",  label: "Slate",   primary: "#475569", accent: "#334155", bg: "#f4f6f8" },
 ];
 
 export function parseSlug(): string | null {
@@ -77,6 +77,24 @@ function lighten(hex: string, amt: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
+function darken(hex: string, amt: number): string {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = (v: number) => Math.max(0, Math.round(v * (1 - amt)));
+  const r = ch((n >> 16) & 255), g = ch((n >> 8) & 255), b = ch(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+// Relative luminance 0..1 — used to keep org backgrounds readable on the
+// light UI (dark text is fixed, so very dark backgrounds get blended white).
+function luminance(hex: string): number {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return 1;
+  const n = parseInt(m[1], 16);
+  return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+}
+
 // Applies an org's identity to the document: title + CSS custom properties.
 // The primary color takes the --pink slot and the accent takes --purple (the
 // two ends of the brand gradient); optional bg drives the page background.
@@ -92,7 +110,8 @@ export function applyBranding(org: OrgBranding) {
   }
   if (accent) {
     st.setProperty("--purple", accent);
-    st.setProperty("--purple-soft", lighten(accent, 0.35));
+    // Accent-derived text color must stay readable on the light UI.
+    st.setProperty("--purple-soft", darken(accent, 0.2));
     const rgb = hexToRgb(accent);
     if (rgb) st.setProperty("--purple-rgb", rgb);
   }
@@ -100,8 +119,12 @@ export function applyBranding(org: OrgBranding) {
     st.setProperty("--grad", `linear-gradient(135deg, ${primary} 0%, ${accent} 100%)`);
   }
   if (org.theme.bg) {
-    st.setProperty("--bg", org.theme.bg);
-    st.setProperty("--bg2", lighten(org.theme.bg, 0.05));
+    // Text is dark on the light UI, so a dark org background is blended
+    // toward white until it stays readable.
+    let bg = org.theme.bg;
+    while (luminance(bg) < 0.82) bg = lighten(bg, 0.35);
+    st.setProperty("--bg", bg);
+    st.setProperty("--bg2", "#ffffff");
   }
 }
 
