@@ -34,10 +34,13 @@ export function SuperAdmin() {
   const [createdInfo, setCreatedInfo] = useState<string | null>(null);
   const [orgMembers, setOrgMembers] = useState<Record<string, { id: string; name: string; email?: string; phone?: string; role: "ADMIN" | "MEMBER" }[]>>({});
   const [newOrgAdmin, setNewOrgAdmin] = useState({ name: "", contact: "", password: "" });
+  const [plans, setPlans] = useState<{ id: string; label: string; price: number | null; billingCycle: string; unlockedFeatures: string[]; credits: number | null; expiryDays: number | null }[]>([]);
+  const [billingForm, setBillingForm] = useState<Record<string, { planId: string; pricePaid: string; notes: string }>>({});
 
   useEffect(() => {
     if (!token) return;
     setAuthToken(token);
+    api.superListPlans().then(r => setPlans(r.plans)).catch(() => {});
     api.superListOrgs()
       .then(r => { setOrgs(r.orgs); return api.superListAdmins(); })
       .then(r => setAdmins(r.admins))
@@ -121,6 +124,26 @@ export function SuperAdmin() {
       await api.superRemoveAdmin(id);
       setAdmins(prev => prev.filter(a => a.id !== id));
     } catch (e2) { setErr((e2 as Error).message); }
+  }
+
+  function planPriceDefault(planId: string): string {
+    const p = plans.find(x => x.id === planId);
+    return p?.price != null ? String(p.price) : "";
+  }
+
+  async function onAssignPlan(slug: string) {
+    const form = billingForm[slug];
+    if (!form?.planId) return;
+    setErr(null);
+    try {
+      const r = await api.superAssignBilling(slug, {
+        planId: form.planId,
+        pricePaid: form.pricePaid.trim() ? parseFloat(form.pricePaid) : undefined,
+        notes: form.notes.trim() || undefined
+      });
+      setOrgs(prev => prev.map(o => o.slug === slug ? r.org : o));
+      setBillingForm(prev => ({ ...prev, [slug]: { planId: "", pricePaid: "", notes: "" } }));
+    } catch (e) { setErr((e as Error).message); }
   }
 
   async function toggleExpanded(slug: string) {
@@ -377,6 +400,43 @@ export function SuperAdmin() {
                           Add admin
                         </button>
                       </form>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.4rem" }}>Membership plan</div>
+                    {o.billing ? (() => {
+                      const plan = plans.find(p => p.id === o.billing.planId);
+                      const expired = o.billing.expiresAt && new Date(o.billing.expiresAt).getTime() < Date.now();
+                      return (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.6rem", fontSize: "0.8rem" }}>
+                          <span style={{ fontWeight: 700 }}>{plan?.label ?? o.billing.planId}</span>
+                          <span style={{ color: "var(--muted)" }}>${o.billing.pricePaid ?? "—"} paid</span>
+                          {o.billing.creditsRemaining != null && <span style={{ color: "var(--muted)" }}>· {o.billing.creditsRemaining} credit(s) left</span>}
+                          {o.billing.expiresAt && (
+                            <span style={{ color: expired ? "#dc2626" : "var(--muted)", fontWeight: expired ? 700 : 400 }}>
+                              · {expired ? "expired" : "expires"} {new Date(o.billing.expiresAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })() : (
+                      <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.6rem" }}>No plan assigned — Community (free) features only.</div>
+                    )}
+                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+                      <select value={billingForm[o.slug]?.planId ?? ""} style={{ minWidth: 200 }}
+                        onChange={e => setBillingForm(prev => ({ ...prev, [o.slug]: { planId: e.target.value, pricePaid: planPriceDefault(e.target.value), notes: prev[o.slug]?.notes ?? "" } }))}>
+                        <option value="">— choose a plan —</option>
+                        {plans.map(p => <option key={p.id} value={p.id}>{p.label}{p.price != null ? ` — $${p.price}` : " — custom"}</option>)}
+                      </select>
+                      <input placeholder="price paid" value={billingForm[o.slug]?.pricePaid ?? ""} style={{ width: 90 }}
+                        onChange={e => setBillingForm(prev => ({ ...prev, [o.slug]: { planId: prev[o.slug]?.planId ?? "", pricePaid: e.target.value, notes: prev[o.slug]?.notes ?? "" } }))} />
+                      <input placeholder="notes (payment ref, etc.)" value={billingForm[o.slug]?.notes ?? ""} style={{ flex: 1, minWidth: 160 }}
+                        onChange={e => setBillingForm(prev => ({ ...prev, [o.slug]: { planId: prev[o.slug]?.planId ?? "", pricePaid: prev[o.slug]?.pricePaid ?? "", notes: e.target.value } }))} />
+                      <button className="btn-primary" style={{ width: "auto", padding: "0.4rem 0.9rem" }}
+                        disabled={!billingForm[o.slug]?.planId} onClick={() => onAssignPlan(o.slug)}>
+                        Assign plan
+                      </button>
                     </div>
                   </div>
                 </div>

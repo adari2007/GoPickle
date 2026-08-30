@@ -627,6 +627,16 @@ export const api = {
   superChangePassword: (payload: { currentPassword: string; newPassword: string }) =>
     request<{ message: string }>("/super/password", { method: "PATCH", body: JSON.stringify(payload) }),
 
+  // ── Membership plans ───────────────────────────────────────────────────────
+  superListPlans: () =>
+    request<{ plans: { id: string; label: string; price: number | null; billingCycle: string; unlockedFeatures: string[]; credits: number | null; expiryDays: number | null }[] }>("/super/plans"),
+
+  superAssignBilling: (slug: string, payload: { planId: string; pricePaid?: number | null; notes?: string }) =>
+    request<{ org: any }>(`/super/orgs/${slug}/billing`, { method: "POST", body: JSON.stringify(payload) }),
+
+  getOrgPlan: (slug: string) =>
+    request<{ plan: { id: string; label: string; pricePaid: number | null; startedAt: string; expiresAt: string | null; creditsRemaining: number | null } | null }>(`/orgs/${slug}/plan`),
+
   superGetOrgMembers: (slug: string) =>
     request<{ members: { id: string; name: string; email?: string; phone?: string; role: "ADMIN" | "MEMBER" }[] }>(`/super/orgs/${slug}/members`),
 

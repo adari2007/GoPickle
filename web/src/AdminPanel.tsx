@@ -20,12 +20,14 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
   const [accent, setAccent] = useState(org.theme.accent ?? "#7c6bff");
   const [bg, setBg] = useState(org.theme.bg ?? "#f4f6fb");
   const [members, setMembers] = useState<OrgUserInfo[]>([]);
+  const [plan, setPlan] = useState<{ id: string; label: string; pricePaid: number | null; startedAt: string; expiresAt: string | null; creditsRemaining: number | null } | null | undefined>(undefined);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api.getOrgMembers(org.slug).then(r => setMembers(r.members)).catch(e => setErr((e as Error).message));
+    api.getOrgPlan(org.slug).then(r => setPlan(r.plan)).catch(() => setPlan(null));
   }, [org.slug]);
 
   async function onSave() {
@@ -133,6 +135,25 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
             {saving ? "Saving…" : "Save branding"}
           </button>
         </div>
+
+        {plan !== undefined && (
+          <div style={{ marginTop: "1rem", padding: "0.7rem 0.9rem", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,.02)" }}>
+            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "0.3rem" }}>Membership Plan</div>
+            {plan ? (
+              <div style={{ fontSize: "0.85rem", display: "flex", flexWrap: "wrap", gap: "0.4rem", alignItems: "baseline" }}>
+                <strong>{plan.label}</strong>
+                {plan.creditsRemaining != null && <span style={{ color: "var(--muted)" }}>· {plan.creditsRemaining} tournament credit(s) left</span>}
+                {plan.expiresAt && (
+                  <span style={{ color: new Date(plan.expiresAt).getTime() < Date.now() ? "#dc2626" : "var(--muted)" }}>
+                    · {new Date(plan.expiresAt).getTime() < Date.now() ? "expired" : "renews/expires"} {new Date(plan.expiresAt).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Community (free) — contact the platform team to unlock Tournaments or Leagues.</div>
+            )}
+          </div>
+        )}
 
         <hr className="profile-dropdown-divider" style={{ margin: "1.2rem 0" }} />
         <h3 style={{ marginBottom: "0.6rem" }}>Members</h3>
