@@ -280,6 +280,8 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
   const [showEditTourney, setShowEditTourney] = useState(false);
   const [editTourneyInput, setEditTourneyInput] = useState({ name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", description: "", maxTeams: "", isDuprReported: false });
   const [editTourneyBanner, setEditTourneyBanner] = useState<string | null | undefined>(undefined); // undefined = unchanged, null = remove
+  const [editTourneyComms, setEditTourneyComms] = useState({ registrationContact: "", tournamentContact: "" });
+  const [editTourneyCoordinators, setEditTourneyCoordinators] = useState<Coordinator[]>([]);
   // Organizer player registration
   const [orgRegQuery, setOrgRegQuery] = useState("");
   const [orgRegResults, setOrgRegResults] = useState<User[]>([]);
@@ -1529,6 +1531,9 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
         description: editTourneyInput.description || null,
         maxTeams: editTourneyInput.maxTeams ? parseInt(editTourneyInput.maxTeams) : null,
         isDuprReported: editTourneyInput.isDuprReported,
+        registrationContact: editTourneyComms.registrationContact.trim() || null,
+        tournamentContact: editTourneyComms.tournamentContact.trim() || null,
+        coordinators: editTourneyCoordinators.filter(c => c.name.trim()),
         ...(editTourneyBanner !== undefined ? { bannerData: editTourneyBanner } : {})
       });
       setEditTourneyBanner(undefined);
@@ -3222,7 +3227,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                         <div className="organizer-panel-title">⚙ Organizer Controls</div>
                         <div className="organizer-controls">
                           <button className="btn-sm" style={{ background: "rgba(124,107,255,.18)", border: "1px solid rgba(124,107,255,.35)", color: "var(--accent)" }} onClick={() => {
-                            setEditTourneyInput({ name: t.name, location: t.location ?? "", startDate: t.startDate ?? "", endDate: t.endDate ?? "", registrationStartDate: t.registrationStartDate ?? "", registrationEndDate: t.registrationEndDate ?? "", withdrawDeadline: t.withdrawDeadline ?? "", description: t.description ?? "", maxTeams: t.maxTeams?.toString() ?? "", isDuprReported: t.isDuprReported ?? false });
+                            setEditTourneyInput({ name: t.name, location: t.location ?? "", startDate: t.startDate ?? "", endDate: t.endDate ?? "", registrationStartDate: t.registrationStartDate ?? "", registrationEndDate: t.registrationEndDate ?? "", withdrawDeadline: t.withdrawDeadline ?? "", description: t.description ?? "", maxTeams: t.maxTeams?.toString() ?? "", isDuprReported: t.isDuprReported ?? false }); setEditTourneyComms({ registrationContact: t.registrationContact ?? "", tournamentContact: t.tournamentContact ?? "" }); setEditTourneyCoordinators(t.coordinators ?? []);
                             setShowEditTourney(v => !v);
                           }}>✏ Edit Details</button>
                           {t.events.length === 0 && (t.status === "PLANNED" || t.status === "ACTIVE") && confirmedRegs.length >= 2 && (
@@ -3665,6 +3670,34 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                 DUPR Reported Tournament
                                 <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400 }}>(requires DUPR ID + rating on registration)</span>
                               </label>
+                            </div>
+                            <div className="field-row">
+                              <div className="field">
+                                <label>Registration Contact</label>
+                                <input placeholder="e.g. WhatsApp +1 555… (registration team)" value={editTourneyComms.registrationContact}
+                                  onChange={e => setEditTourneyComms(p => ({ ...p, registrationContact: e.target.value }))} />
+                              </div>
+                              <div className="field">
+                                <label>Tournament Contact</label>
+                                <input placeholder="e.g. tournamentdesk@…, +1 555…" value={editTourneyComms.tournamentContact}
+                                  onChange={e => setEditTourneyComms(p => ({ ...p, tournamentContact: e.target.value }))} />
+                              </div>
+                            </div>
+                            <div className="field">
+                              <label>Coordinators</label>
+                              {editTourneyCoordinators.map((c, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                                  <input placeholder="Name" value={c.name} style={{ flex: 2 }}
+                                    onChange={e => setEditTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                                  <input placeholder="Role (optional)" value={c.role ?? ""} style={{ flex: 2 }}
+                                    onChange={e => setEditTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} />
+                                  <input placeholder="Contact" value={c.contact ?? ""} style={{ flex: 2 }}
+                                    onChange={e => setEditTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, contact: e.target.value } : x))} />
+                                  <button type="button" className="btn-ghost" onClick={() => setEditTourneyCoordinators(prev => prev.filter((_, j) => j !== i))}>✕</button>
+                                </div>
+                              ))}
+                              <button type="button" className="btn-ghost" style={{ alignSelf: "flex-start" }}
+                                onClick={() => setEditTourneyCoordinators(prev => [...prev, { name: "", role: "", contact: "" }])}>+ Add coordinator</button>
                             </div>
                             <div className="field">
                               <label>Tournament Banner</label>
