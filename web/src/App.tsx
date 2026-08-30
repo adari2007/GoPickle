@@ -5871,6 +5871,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                 )}
 
                 <div className="content-grid">
+                  {user.role === "ADMIN" && (
                   <div className="glass-card">
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                       <h3 className="card-title" style={{ margin: 0 }}>Create Tournament</h3>
@@ -6061,8 +6062,9 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                       <button type="submit" className="btn-primary" disabled={loading}>Create Tournament</button>
                     </form>
                   </div>
+                  )}
 
-                  <div className="glass-card">
+                  <div className="glass-card" style={user.role !== "ADMIN" ? { gridColumn: "1 / -1" } : undefined}>
                     <h3 className="card-title">All Tournaments <span className="count-badge">{tournaments.length}</span></h3>
                     {tournaments.length === 0
                       ? <p className="empty-state">No tournaments yet — create one!</p>
