@@ -83,7 +83,7 @@ export function AdminPanel({ org, currentUserId, tournaments, onOrgUpdated, onCl
             <label>Logo</label>
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
               {(logoData || logoUrl) && <img src={logoData ?? logoUrl} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "contain", background: "var(--surface)" }} />}
-              <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+              <input type="file" accept="image/*" className="file-input"
                 onChange={e => onLogoFile(e.target.files?.[0])} />
               {logoData && <button type="button" className="btn-ghost" onClick={() => setLogoData(null)}>Remove</button>}
             </div>

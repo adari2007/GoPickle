@@ -371,6 +371,42 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 
 .link-btn:hover { text-decoration: underline; }
 
+/* ── FILE UPLOAD ────────────────────────────────────────────────────────────── */
+.file-input {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  color: var(--muted);
+  max-width: 100%;
+}
+
+.file-input::file-selector-button,
+.file-input::-webkit-file-upload-button {
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--grad);
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+  margin-right: 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(var(--pink-rgb), .22);
+  transition: filter .18s, transform .1s;
+}
+
+.file-input:hover::file-selector-button,
+.file-input:hover::-webkit-file-upload-button {
+  filter: brightness(1.1);
+}
+
+.file-input:active::file-selector-button,
+.file-input:active::-webkit-file-upload-button {
+  transform: scale(0.97);
+}
+
 /* ── AVATAR ─────────────────────────────────────────────────────────────────── */
 .avatar {
   border-radius: 50%;

@@ -362,7 +362,7 @@ export function SuperAdmin() {
                     <div style={{ fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.4rem" }}>Logo</div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                       {o.logoUrl && <img src={o.logoUrl} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: "contain", background: "var(--surface)" }} />}
-                      <input type="file" accept="image/*" style={{ fontSize: "0.75rem", color: "var(--muted)" }}
+                      <input type="file" accept="image/*" className="file-input"
                         onChange={e => onOrgLogoFile(o.slug, e.target.files?.[0])} />
                     </div>
                   </div>

@@ -3730,7 +3730,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                 {(editTourneyBanner ?? t.bannerData) && editTourneyBanner !== null && (
                                   <img src={editTourneyBanner ?? t.bannerData} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />
                                 )}
-                                <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+                                <input type="file" accept="image/*" className="file-input"
                                   onChange={async e => {
                                     const f = e.target.files?.[0];
                                     if (!f) return;
@@ -4255,7 +4255,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                     <label>Payment proof (optional JPG/photo)</label>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                       {regPaymentProof && <img src={regPaymentProof} alt="" style={{ height: 36, borderRadius: 6 }} />}
-                                      <input type="file" accept="image/*" style={{ fontSize: "0.78rem", color: "var(--muted)" }}
+                                      <input type="file" accept="image/*" className="file-input"
                                         onChange={e => onRegProofFile(e.target.files?.[0])} />
                                     </div>
                                     <p className="entity-sub" style={{ marginTop: 4 }}>
@@ -6050,7 +6050,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                         <label>Tournament Banner <span style={{ color: "var(--muted)", fontWeight: 400, textTransform: "none" }}>(optional, 16:5 e.g. 1600×500px)</span></label>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {tourneyBanner && <img src={tourneyBanner} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />}
-                          <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+                          <input type="file" accept="image/*" className="file-input"
                             onChange={async e => {
                               const f = e.target.files?.[0];
                               if (!f) { setTourneyBanner(null); return; }
