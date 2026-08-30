@@ -142,16 +142,31 @@ export interface LeagueWeekResult {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
 
+// Tenant + auth context, set once at bootstrap (main.tsx) and on login.
+let orgSlug: string | null = null;
+let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setOrgSlug(slug: string | null) { orgSlug = slug; }
+export function setAuthToken(token: string | null) { authToken = token; }
+export function setOnUnauthorized(fn: (() => void) | null) { onUnauthorized = fn; }
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const hadToken = !!authToken;
   const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(orgSlug ? { "X-Org-Slug": orgSlug } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(init?.headers || {})
-    },
-    ...init
+    }
   });
 
   if (!response.ok) {
+    // A 401 while holding a token means it expired or was revoked — reset the
+    // stored session. (401s from the login form itself carry no token.)
+    if (response.status === 401 && hadToken && onUnauthorized) onUnauthorized();
     let message = `Request failed (${response.status})`;
     try {
       const body = await response.json();
@@ -163,15 +178,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export interface OrgUserInfo { id: string; name: string; email?: string; phone?: string; role: "ADMIN" | "MEMBER"; duprRating?: number }
+
 export const api = {
   login: (payload: { email?: string; phone?: string; password: string }) =>
-    request<{ token: string; user: { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number } }>("/auth/login", {
+    request<{ token: string; user: { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number; role?: string } }>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
 
   register: (payload: { name: string; email?: string; phone?: string; password: string }) =>
-    request<{ token: string; user: { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number } }>("/auth/register", {
+    request<{ token: string; user: { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number; role?: string } }>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
@@ -258,7 +275,7 @@ export const api = {
     }),
 
   updateUserProfile: (userId: string, payload: { duprId?: string; duprRating?: number | null; duprRatingSingles?: number | null; duprRatingDoubles?: number | null; duprRatingMixed?: number | null }) =>
-    request<{ user: { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number } }>(`/users/${userId}/profile`, {
+    request<{ user: { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number; role?: string } }>(`/users/${userId}/profile`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
@@ -292,6 +309,8 @@ export const api = {
   createTournament: (payload: {
     createdBy: string; name: string;
     events: Array<{ eventType: string; skillLevel?: string; ageBracket?: "OPEN" | "YOUNG" | "SENIOR" }>;
+    registrationContact?: string; tournamentContact?: string;
+    coordinators?: { name: string; contact?: string; role?: string }[]; bannerData?: string;
     format?: string; maxTeams?: number; location?: string;
     startDate?: string; endDate?: string;
     registrationStartDate?: string; registrationEndDate?: string; withdrawDeadline?: string;
@@ -308,7 +327,7 @@ export const api = {
   getTournament: (id: string) =>
     request<{ tournament: any }>(`/tournaments/${id}`),
 
-  registerForTournament: (id: string, payload: { userId: string; tournamentEventId?: string; partnerId?: string; duprId?: string; duprRating?: number; partnerDuprId?: string; partnerDuprRating?: number; teamName?: string }) =>
+  registerForTournament: (id: string, payload: { userId: string; tournamentEventId?: string; partnerId?: string; duprId?: string; duprRating?: number; partnerDuprId?: string; partnerDuprRating?: number; teamName?: string; paymentProof?: string }) =>
     request<{ message: string; registrationId: string }>(`/tournaments/${id}/register`, {
       method: "POST",
       body: JSON.stringify(payload)
@@ -350,7 +369,7 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
-  updateTournamentDetails: (id: string, payload: { organizerId: string; name?: string; location?: string | null; startDate?: string | null; endDate?: string | null; registrationStartDate?: string | null; registrationEndDate?: string | null; withdrawDeadline?: string | null; description?: string | null; maxTeams?: number | null; isDuprReported?: boolean; registrationClosed?: boolean }) =>
+  updateTournamentDetails: (id: string, payload: { organizerId: string; name?: string; location?: string | null; startDate?: string | null; endDate?: string | null; registrationStartDate?: string | null; registrationEndDate?: string | null; withdrawDeadline?: string | null; description?: string | null; maxTeams?: number | null; isDuprReported?: boolean; registrationClosed?: boolean ; registrationContact?: string | null; tournamentContact?: string | null; coordinators?: { name: string; contact?: string; role?: string }[]; bannerData?: string | null }) =>
     request<{ tournament: any }>(`/tournaments/${id}/details`, {
       method: "PATCH",
       body: JSON.stringify(payload)
@@ -570,5 +589,76 @@ export const api = {
 
   deleteQpSession: (id: string, organizerId: string) =>
     request<{ message: string }>(`/quick-play/${id}`, { method: "DELETE", body: JSON.stringify({ organizerId }) }),
-};
+  // ── Organizations ─────────────────────────────────────────────────────────
+  getOrgBranding: (slug: string) =>
+    request<{ slug: string; name: string; logoUrl: string | null; theme: { primary?: string; accent?: string; bg?: string; preset?: string }; features: { buddies: boolean; clubs: boolean; games: boolean; tournaments: boolean; leagues: boolean; quickPlay: boolean }; settings?: { defaultTournamentMode?: "none" | "active" | "specific"; defaultTournamentId?: string | null } }>(`/orgs/${slug}/branding`),
 
+  createOrg: (payload: { slug: string; name: string; logoUrl?: string; theme?: { primary?: string; accent?: string; bg?: string; preset?: string }; admin: { name: string; email?: string; phone?: string; password: string } }) =>
+    request<{ org: any; user: { id: string; name: string; email?: string; phone?: string; role: string } }>("/orgs", { method: "POST", body: JSON.stringify(payload) }),
+
+  updateOrg: (slug: string, patch: { name?: string; logoUrl?: string | null; logoData?: string | null; theme?: { primary?: string; accent?: string; bg?: string; preset?: string }; settings?: { defaultTournamentMode?: "none" | "active" | "specific"; defaultTournamentId?: string | null } }) =>
+    request<{ org: any }>(`/orgs/${slug}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  getOrgMembers: (slug: string) =>
+    request<{ members: OrgUserInfo[] }>(`/orgs/${slug}/members`),
+
+  setMemberRole: (slug: string, userId: string, role: "ADMIN" | "MEMBER") =>
+    request<{ member: { id: string; name: string; role: string } }>(`/orgs/${slug}/members/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+
+  // ── Super admin (platform) ────────────────────────────────────────────────
+  superLogin: (payload: { email: string; password: string }) =>
+    request<{ token: string }>("/super/login", { method: "POST", body: JSON.stringify(payload) }),
+
+  superListOrgs: () =>
+    request<{ orgs: any[] }>("/super/orgs"),
+
+  superUpdateOrg: (slug: string, patch: { name?: string; logoUrl?: string | null; logoData?: string | null; theme?: any; features?: any; settings?: any; status?: "READY" | "SUSPENDED" }) =>
+    request<{ org: any }>(`/super/orgs/${slug}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  superListAdmins: () =>
+    request<{ admins: { id: string; email: string; createdAt: string }[] }>("/super/admins"),
+
+  superAddAdmin: (payload: { email: string; password: string }) =>
+    request<{ admin: { id: string; email: string } }>("/super/admins", { method: "POST", body: JSON.stringify(payload) }),
+
+  superRemoveAdmin: (id: string) =>
+    request<{ message: string }>(`/super/admins/${id}`, { method: "DELETE" }),
+
+  superChangePassword: (payload: { currentPassword: string; newPassword: string }) =>
+    request<{ message: string }>("/super/password", { method: "PATCH", body: JSON.stringify(payload) }),
+
+  // ── Membership plans ───────────────────────────────────────────────────────
+  superListPlans: () =>
+    request<{ plans: { id: string; label: string; price: number | null; billingCycle: string; unlockedFeatures: string[]; credits: number | null; expiryDays: number | null }[] }>("/super/plans"),
+
+  superAssignBilling: (slug: string, payload: { planId: string; pricePaid?: number | null; notes?: string }) =>
+    request<{ org: any }>(`/super/orgs/${slug}/billing`, { method: "POST", body: JSON.stringify(payload) }),
+
+  getOrgPlan: (slug: string) =>
+    request<{ plan: { id: string; label: string; pricePaid: number | null; startedAt: string; expiresAt: string | null; creditsRemaining: number | null } | null }>(`/orgs/${slug}/plan`),
+
+  superGetOrgMembers: (slug: string) =>
+    request<{ members: { id: string; name: string; email?: string; phone?: string; role: "ADMIN" | "MEMBER" }[] }>(`/super/orgs/${slug}/members`),
+
+  superAddOrgMember: (slug: string, payload: { name: string; email?: string; phone?: string; password: string; role?: "ADMIN" | "MEMBER" }) =>
+    request<{ member: { id: string; name: string; role: string } }>(`/super/orgs/${slug}/members`, { method: "POST", body: JSON.stringify(payload) }),
+
+  superSetOrgMemberRole: (slug: string, userId: string, role: "ADMIN" | "MEMBER") =>
+    request<{ member: { id: string; name: string; role: string } }>(`/super/orgs/${slug}/members/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+
+  // ── Tournament payment proof ──────────────────────────────────────────────
+  uploadPaymentProof: (tournamentId: string, regId: string, payload: { userId: string; paymentProof: string }) =>
+    request<{ message: string; paymentStatus: string }>(`/tournaments/${tournamentId}/registrations/${regId}/payment-proof`, { method: "POST", body: JSON.stringify(payload) }),
+
+  getPaymentProof: (tournamentId: string, regId: string, organizerId: string) =>
+    request<{ proof: string }>(`/tournaments/${tournamentId}/registrations/${regId}/payment-proof?organizerId=${encodeURIComponent(organizerId)}`),
+
+  addTournamentEvent: (tournamentId: string, payload: { organizerId: string; eventType: string; skillLevel?: string; ageBracket?: "OPEN" | "YOUNG" | "SENIOR" }) =>
+    request<{ event: TournamentEvent }>(`/tournaments/${tournamentId}/events`, { method: "POST", body: JSON.stringify(payload) }),
+
+  removeTournamentEvent: (tournamentId: string, eventId: string, organizerId: string) =>
+    request<{ message: string }>(`/tournaments/${tournamentId}/events/${eventId}`, { method: "DELETE", body: JSON.stringify({ organizerId }) }),
+
+  reviewPayment: (tournamentId: string, regId: string, payload: { organizerId: string; action: "APPROVE" | "REJECT" }) =>
+    request<{ registrationId: string; paymentStatus: string }>(`/tournaments/${tournamentId}/registrations/${regId}/payment-review`, { method: "POST", body: JSON.stringify(payload) })
+};

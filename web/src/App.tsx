@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { api, LeagueSummary, LeagueWeek, LeagueWeekResult, TournamentEvent, TournamentGroup, TournamentSubDivision, QpSession, QpMatch, QpStanding, QpPlacement } from "./lib/api";
-import logo from "./assets/logo-pickle.svg";
+import { api, setAuthToken, LeagueSummary, LeagueWeek, LeagueWeekResult, TournamentEvent, TournamentGroup, TournamentSubDivision, QpSession, QpMatch, QpStanding, QpPlacement } from "./lib/api";
+import { OrgBranding, applyBranding, clearSession, fileToDataUrl, saveSession } from "./lib/org";
+import { AdminPanel } from "./AdminPanel";
 import buddyIcon from "./assets/icon-buddy.svg";
 import clubIcon from "./assets/icon-club.svg";
 import gameIcon from "./assets/icon-game.svg";
@@ -8,7 +9,7 @@ import trophyIcon from "./assets/icon-trophy.svg";
 import quickplayIcon from "./assets/icon-quickplay.svg";
 import leagueIcon from "./assets/icon-league.svg";
 
-type User       = { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number };
+type User       = { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number; role?: string };
 type Club       = { id: string; name: string; description?: string; createdBy: string; memberIds: string[]; privacy: "PUBLIC" | "PRIVATE"; allowDirectJoin: boolean; location?: string; joinCode?: string };
 type ClubMember = User & { duprRating?: number };
 type ClubDetail = Club & { members: ClubMember[]; pendingInviteUserIds: string[] };
@@ -17,11 +18,12 @@ type ClubSession = { id: string; clubId: string; name: string; sessionType: stri
 type ClubJoinRequest = { id: string; clubId: string; userId: string; userName: string; status: string; createdAt: string };
 type ClubAnalytics = { memberCount: number; sessionCount: number; approvedSessionCount: number; gameCount: number; avgDuprRating: number | null; topPlayers: ClubMember[] };
 type Game        = { id: string; type: string; format: string; score: string; participantIds: string[] };
-type Tournament  = { id: string; name: string; eventType: string; format: string; skillLevel?: string; location?: string; startDate?: string; participantIds: string[]; status: string; isDuprReported?: boolean };
-type TournamentRegistration = { id: string; tournamentId: string; playerId: string; playerName: string; playerEmail?: string; playerPhone?: string; partnerId?: string; partnerName?: string; teamName?: string; playerDuprRating?: number; partnerDuprId?: string; partnerDuprRating?: number; status: string; tournamentEventId?: string };
+type Coordinator = { name: string; contact?: string; role?: string };
+type Tournament  = { id: string; name: string; eventType: string; format: string; skillLevel?: string; location?: string; startDate?: string; participantIds: string[]; status: string; isDuprReported?: boolean; registrationContact?: string; tournamentContact?: string; coordinators?: Coordinator[]; hasBanner?: boolean };
+type TournamentRegistration = { id: string; tournamentId: string; playerId: string; playerName: string; playerEmail?: string; playerPhone?: string; partnerId?: string; partnerName?: string; teamName?: string; playerDuprRating?: number; partnerDuprId?: string; partnerDuprRating?: number; status: string; tournamentEventId?: string; paymentStatus?: string; hasPaymentProof?: boolean };
 type TournamentMatch = { id: string; roundNumber: number; matchNumber: number; bracket: string; court?: string; scheduledAt?: string; team1Ids: string[]; team2Ids: string[]; scoreTeam1?: number; scoreTeam2?: number; winnerIds?: string[]; status: string; reportedBy?: string; tournamentEventId?: string; groupId?: string; subDivisionId?: string };
 type TournamentPlacement = { id: string; position: number; playerIds: string[]; label?: string; note?: string; eventId?: string; subDivisionId?: string };
-type TournamentDetail = Tournament & { createdBy: string; clubId?: string; ageBracket: string; maxTeams?: number; description?: string; roundRobinType: string; endDate?: string; registrationStartDate?: string; registrationEndDate?: string; withdrawDeadline?: string; registrationClosed?: boolean; cancelledReason?: string; cancelledAt?: string; registrations: TournamentRegistration[]; matches: TournamentMatch[]; placements: TournamentPlacement[]; events: TournamentEvent[]; groups: TournamentGroup[]; subDivisions: TournamentSubDivision[] };
+type TournamentDetail = Tournament & { createdBy: string; clubId?: string; ageBracket: string; maxTeams?: number; description?: string; roundRobinType: string; endDate?: string; registrationStartDate?: string; registrationEndDate?: string; withdrawDeadline?: string; registrationClosed?: boolean; cancelledReason?: string; cancelledAt?: string; bannerData?: string; registrations: TournamentRegistration[]; matches: TournamentMatch[]; placements: TournamentPlacement[]; events: TournamentEvent[]; groups: TournamentGroup[]; subDivisions: TournamentSubDivision[] };
 
 const EVENT_TYPES = [
   { value: "MEN_SINGLES",    label: "Men's Singles",    isDoubles: false },
@@ -82,6 +84,15 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: "leagues",     label: "Leagues",     emoji: "📅" },
 ];
 
+// Which org feature flag gates each tab ("home" is always available).
+const TAB_FEATURE: Partial<Record<Tab, keyof OrgBranding["features"]>> = {
+  buddies: "buddies",
+  clubs: "clubs",
+  "quick-play": "quickPlay",
+  tournaments: "tournaments",
+  leagues: "leagues",
+};
+
 function teamKey(ids: string[]) { return [...ids].sort().join("+"); }
 
 function computeStandings(matches: TournamentMatch[], registrations: TournamentRegistration[]) {
@@ -132,8 +143,15 @@ function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   );
 }
 
-export function App() {
-  const [user, setUser] = useState<User | null>(null);
+export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initialUser: User | null }) {
+  const [org, setOrg] = useState<OrgBranding>(initialOrg);
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const visibleTabs = TABS.filter(t => {
+    const f = TAB_FEATURE[t.id];
+    return !f || org.features[f] !== false;
+  });
+
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [contact, setContact] = useState({ email: "", phone: "", name: "", password: "" });
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -195,7 +213,11 @@ export function App() {
   const qpPlayerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // eventDivisions: Record<eventType, Record<skillLevel, ageBracket[]>>
   const [eventDivisions, setEventDivisions] = useState<Record<string, Record<string, string[]>>>({});
-  const [tourneyInput, setTourneyInput] = useState({ name: "", format: "ROUND_ROBIN", roundRobinType: "FIXED", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false });
+  const [tourneyInput, setTourneyInput] = useState({ name: "", format: "ROUND_ROBIN", roundRobinType: "FIXED", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false, registrationContact: "", tournamentContact: "" });
+  const [tourneyCoordinators, setTourneyCoordinators] = useState<Coordinator[]>([]);
+  const [tourneyBanner, setTourneyBanner] = useState<string | null>(null);
+  const [regPaymentProof, setRegPaymentProof] = useState<string | null>(null);
+  const [proofViewer, setProofViewer] = useState<string | null>(null);
   const [selectedTournament, setSelectedTournament] = useState<TournamentDetail | null>(null);
   const [tourneyDetailTab, setTourneyDetailTab] = useState<"overview" | "players" | "divisions" | "winners">("overview");
   const [showOrgRegPanel, setShowOrgRegPanel] = useState(false);
@@ -257,6 +279,11 @@ export function App() {
   const [rrScheduleTime, setRrScheduleTime] = useState("");
   const [showEditTourney, setShowEditTourney] = useState(false);
   const [editTourneyInput, setEditTourneyInput] = useState({ name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", description: "", maxTeams: "", isDuprReported: false });
+  const [editTourneyBanner, setEditTourneyBanner] = useState<string | null | undefined>(undefined); // undefined = unchanged, null = remove
+  const [editTourneyComms, setEditTourneyComms] = useState({ registrationContact: "", tournamentContact: "" });
+  const [editTourneyCoordinators, setEditTourneyCoordinators] = useState<Coordinator[]>([]);
+  const [showAddDivision, setShowAddDivision] = useState(false);
+  const [addDivInput, setAddDivInput] = useState({ eventType: "MEN_DOUBLES", skillLevel: "OPEN", ageBracket: "OPEN" as "OPEN" | "YOUNG" | "SENIOR" });
   // Organizer player registration
   const [orgRegQuery, setOrgRegQuery] = useState("");
   const [orgRegResults, setOrgRegResults] = useState<User[]>([]);
@@ -314,11 +341,73 @@ export function App() {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [buddyQuery]);
 
+  // A restored session skips onLogin, so load data on mount.
+  useEffect(() => {
+    if (initialUser) refreshAll(initialUser.id).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep branding/features fresh: re-fetch when the tab regains focus so a
+  // super admin's toggles or theme changes show up without a manual reload.
+  useEffect(() => {
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const fresh = await api.getOrgBranding(org.slug);
+        applyBranding(fresh);
+        setOrg(prev => ({ ...prev, name: fresh.name, logoUrl: fresh.logoUrl, theme: fresh.theme, features: fresh.features, settings: fresh.settings }));
+      } catch { /* transient network issues are fine */ }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org.slug]);
+
+  // Org-configured default landing: jump to the active (or a specific)
+  // tournament once after sign-in, when tournaments have loaded.
+  const didDefaultNav = useRef(false);
+  useEffect(() => {
+    if (didDefaultNav.current || !user || tournaments.length === 0) return;
+    const mode = org.settings?.defaultTournamentMode ?? "none";
+    if (mode === "none" || org.features.tournaments === false) { didDefaultNav.current = true; return; }
+    let target: string | undefined;
+    if (mode === "specific") {
+      target = org.settings?.defaultTournamentId ?? undefined;
+      if (target && !tournaments.some(t => t.id === target)) target = undefined;
+    } else {
+      const active = tournaments.filter(t => t.status !== "COMPLETED" && t.status !== "CANCELLED");
+      target = (active.find(t => t.status === "IN_PROGRESS") ?? active[active.length - 1])?.id;
+    }
+    didDefaultNav.current = true;
+    if (target) {
+      setActiveTab("tournaments");
+      selectTournament(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, tournaments]);
+
+  // Never leave the user on a tab the org has disabled.
+  useEffect(() => {
+    if (!visibleTabs.some(t => t.id === activeTab)) setActiveTab("home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, org.features]);
+
   async function refreshAll(uid: string) {
+    // Disabled features are 403 on the API — skip their calls entirely.
+    const f = org.features;
     const [c, g, t, b, inv, pi, lg, qp] = await Promise.all([
-      api.listClubs(), api.listGames(), api.listTournaments(), api.listBuddies(uid),
-      api.listClubInvites(uid), api.listTournamentPartnerInvites(uid), api.listLeagues(),
-      api.listQpSessions()
+      f.clubs !== false ? api.listClubs() : Promise.resolve({ clubs: [] }),
+      f.games !== false ? api.listGames() : Promise.resolve({ games: [] }),
+      f.tournaments !== false ? api.listTournaments() : Promise.resolve({ tournaments: [] }),
+      f.buddies !== false ? api.listBuddies(uid) : Promise.resolve({ buddies: [] }),
+      f.clubs !== false ? api.listClubInvites(uid) : Promise.resolve({ invites: [] }),
+      f.tournaments !== false ? api.listTournamentPartnerInvites(uid) : Promise.resolve({ invites: [] }),
+      f.leagues !== false ? api.listLeagues() : Promise.resolve({ leagues: [] }),
+      f.quickPlay !== false ? api.listQpSessions() : Promise.resolve({ sessions: [] })
     ]);
     setClubs(c.clubs);
     setGames(g.games);
@@ -551,6 +640,12 @@ export function App() {
     setContact({ ...contact, email: isPhone ? "" : val, phone: isPhone ? val : "" });
   }
 
+  function signOut() {
+    clearSession(org.slug);
+    setAuthToken(null);
+    setUser(null);
+  }
+
   async function onLogin(e: FormEvent) {
     e.preventDefault();
     await withError(async () => {
@@ -559,6 +654,8 @@ export function App() {
         phone: contact.phone || undefined,
         password: contact.password,
       });
+      setAuthToken(r.token);
+      saveSession(org.slug, { token: r.token, user: r.user });
       setUser(r.user);
       await refreshAll(r.user.id);
     });
@@ -574,6 +671,8 @@ export function App() {
         phone: contact.phone || undefined,
         password: contact.password,
       });
+      setAuthToken(r.token);
+      saveSession(org.slug, { token: r.token, user: r.user });
       setUser(r.user);
       await refreshAll(r.user.id);
     });
@@ -1173,10 +1272,40 @@ export function App() {
         clubId: tourneyInput.clubId || undefined,
         roundRobinType: tourneyInput.roundRobinType,
         isDuprReported: tourneyInput.isDuprReported,
+        registrationContact: tourneyInput.registrationContact || undefined,
+        tournamentContact: tourneyInput.tournamentContact || undefined,
+        coordinators: tourneyCoordinators.filter(c => c.name.trim()).length > 0 ? tourneyCoordinators.filter(c => c.name.trim()) : undefined,
+        bannerData: tourneyBanner ?? undefined,
       });
-      setTourneyInput(p => ({ ...p, name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false }));
+      setTourneyInput(p => ({ ...p, name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false, registrationContact: "", tournamentContact: "" }));
+      setTourneyCoordinators([]);
+      setTourneyBanner(null);
       setEventDivisions({});
       await refreshAll(user.id);
+    });
+  }
+
+  async function onRegProofFile(file: File | undefined) {
+    if (!file) { setRegPaymentProof(null); return; }
+    try {
+      setRegPaymentProof(await fileToDataUrl(file, 6_000_000));
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function onViewPaymentProof(tournamentId: string, regId: string) {
+    if (!user) return;
+    await withError(async () => {
+      const r = await api.getPaymentProof(tournamentId, regId, user.id);
+      setProofViewer(r.proof);
+    });
+  }
+
+  async function onReviewPayment(tournamentId: string, regId: string, action: "APPROVE" | "REJECT") {
+    if (!user) return;
+    await withError(async () => {
+      await api.reviewPayment(tournamentId, regId, { organizerId: user.id, action });
+      setProofViewer(null);
+      await selectTournament(tournamentId);
     });
   }
 
@@ -1202,9 +1331,11 @@ export function App() {
             duprRating: ratingStr ? parseFloat(ratingStr) : undefined,
             partnerDuprId: divPartnerDuprIds[evId]?.trim() || undefined,
             partnerDuprRating: partnerRatingStr ? parseFloat(partnerRatingStr) : undefined,
-            teamName: divTeamNames[evId]?.trim() || undefined
+            teamName: divTeamNames[evId]?.trim() || undefined,
+            paymentProof: evId === selectedEventIds[0] ? regPaymentProof ?? undefined : undefined
           });
         }
+        setRegPaymentProof(null);
         setSelectedEventIds([]); setDivPartners({}); setDivTeamNames({}); setPartnerAssignEventId(null); setPartnerQuery(""); setPartnerResults([]);
         setDivDuprRatings({}); setDivPartnerDuprIds({}); setDivPartnerDuprRatings({});
       } else {
@@ -1219,8 +1350,10 @@ export function App() {
           duprRating: ratingStr ? parseFloat(ratingStr) : undefined,
           partnerDuprId: regPartnerDuprId.trim() || undefined,
           partnerDuprRating: partnerRatingStr ? parseFloat(partnerRatingStr) : undefined,
-          teamName: regTeamName.trim() || undefined
+          teamName: regTeamName.trim() || undefined,
+          paymentProof: regPaymentProof ?? undefined
         });
+        setRegPaymentProof(null);
         setSelectedPartner(null); setPartnerQuery(""); setPartnerResults([]);
         setRegDuprRating(""); setRegPartnerDuprId(""); setRegPartnerDuprRating("");
       }
@@ -1399,9 +1532,37 @@ export function App() {
         withdrawDeadline: editTourneyInput.withdrawDeadline || null,
         description: editTourneyInput.description || null,
         maxTeams: editTourneyInput.maxTeams ? parseInt(editTourneyInput.maxTeams) : null,
-        isDuprReported: editTourneyInput.isDuprReported
+        isDuprReported: editTourneyInput.isDuprReported,
+        registrationContact: editTourneyComms.registrationContact.trim() || null,
+        tournamentContact: editTourneyComms.tournamentContact.trim() || null,
+        coordinators: editTourneyCoordinators.filter(c => c.name.trim()),
+        ...(editTourneyBanner !== undefined ? { bannerData: editTourneyBanner } : {})
       });
+      setEditTourneyBanner(undefined);
       setShowEditTourney(false);
+      await selectTournament(tournamentId);
+    });
+  }
+
+  async function onAddDivision(tournamentId: string) {
+    if (!user) return;
+    await withError(async () => {
+      await api.addTournamentEvent(tournamentId, {
+        organizerId: user.id,
+        eventType: addDivInput.eventType,
+        skillLevel: addDivInput.skillLevel,
+        ageBracket: addDivInput.ageBracket
+      });
+      setShowAddDivision(false);
+      await selectTournament(tournamentId);
+    });
+  }
+
+  async function onRemoveDivision(tournamentId: string, eventId: string) {
+    if (!user) return;
+    await withError(async () => {
+      await api.removeTournamentEvent(tournamentId, eventId, user.id);
+      if (selectedEventId === eventId) setSelectedEventId(null);
       await selectTournament(tournamentId);
     });
   }
@@ -1561,8 +1722,8 @@ export function App() {
       <div className="auth-root">
         <div className="auth-brand">
           <div className="auth-brand-inner">
-            <img src={logo} alt="GoPickle" className="auth-brand-logo" />
-            <h1 className="auth-brand-name">GoPickle</h1>
+            {org.logoUrl && <img src={org.logoUrl} alt={org.name} className="auth-brand-logo" />}
+            <h1 className="auth-brand-name">{org.name}</h1>
             <p className="auth-brand-tagline">
               The modern social platform for pickleball — track clubs, buddies, matches, and tournaments.
             </p>
@@ -1578,12 +1739,12 @@ export function App() {
         <div className="auth-panel">
           <div className="auth-card">
             <div className="auth-card-logo-mobile">
-              <img src={logo} alt="" />
-              <span>GoPickle</span>
+              {org.logoUrl && <img src={org.logoUrl} alt="" />}
+              <span>{org.name}</span>
             </div>
 
             <h2 className="auth-title">
-              {authMode === "login" ? "Welcome back" : "Join GoPickle"}
+              {authMode === "login" ? "Welcome back" : `Join ${org.name}`}
             </h2>
             <p className="auth-subtitle">
               {authMode === "login" ? "Sign in to your account" : "Create your free account"}
@@ -1626,7 +1787,7 @@ export function App() {
             </form>
 
             <p className="auth-switch">
-              {authMode === "login" ? "New to GoPickle?" : "Already have an account?"}{" "}
+              {authMode === "login" ? `New to ${org.name}?` : "Already have an account?"}{" "}
               <button
                 type="button"
                 className="link-btn"
@@ -1644,14 +1805,19 @@ export function App() {
   // ── DASHBOARD ────────────────────────────────────────────────────────────────
   return (
     <div className="dash-root">
+      {showAdminPanel && (
+        <AdminPanel org={org} currentUserId={user.id}
+          tournaments={tournaments.map(t => ({ id: t.id, name: t.name, status: t.status }))}
+          onOrgUpdated={setOrg} onClose={() => setShowAdminPanel(false)} />
+      )}
       <nav className="topbar">
         <div className="topbar-brand">
-          <img src={logo} alt="GoPickle" className="topbar-logo" />
-          <span className="topbar-name">GoPickle</span>
+          {org.logoUrl && <img src={org.logoUrl} alt={org.name} className="topbar-logo" />}
+          <span className="topbar-name">{org.name}</span>
         </div>
 
         <div className="tab-bar" role="tablist">
-          {TABS.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.id}
               role="tab"
@@ -1666,11 +1832,11 @@ export function App() {
         </div>
 
         <div className="topbar-user">
-          <button className="avatar-btn" onClick={() => setShowProfileMenu(v => !v)} aria-label="Profile menu">
+          <button className="avatar-btn" onClick={e => { e.stopPropagation(); setShowProfileMenu(v => !v); }} aria-label="Profile menu">
             <Avatar name={user.name} />
           </button>
           <span className="topbar-username">{user.name.split(" ")[0]}</span>
-          <button className="btn-ghost" onClick={() => setUser(null)}>Sign out</button>
+          <button className="btn-ghost" onClick={signOut}>Sign out</button>
           {showProfileMenu && (
             <div className="profile-dropdown" onClick={e => e.stopPropagation()}>
               <div>
@@ -1682,9 +1848,15 @@ export function App() {
                   DUPR Rating: <span style={{ color: "var(--text)", fontWeight: 700 }}>{user.duprRating}</span>
                 </div>
               )}
+              {user.role === "ADMIN" && (
+                <button className="btn-ghost" style={{ width: "100%", textAlign: "left" }}
+                  onClick={() => { setShowAdminPanel(true); setShowProfileMenu(false); }}>
+                  ⚙️ Organization settings
+                </button>
+              )}
               <hr className="profile-dropdown-divider" />
               <button className="btn-ghost" style={{ width: "100%", textAlign: "left" }}
-                onClick={() => { setUser(null); setShowProfileMenu(false); }}>
+                onClick={() => { signOut(); setShowProfileMenu(false); }}>
                 Sign out
               </button>
             </div>
@@ -1708,13 +1880,13 @@ export function App() {
             </div>
             <div className="stats-grid">
               {[
-                { label: "Buddies",     value: buddies.length,     icon: buddyIcon,  cls: "buddies-icon" },
-                { label: "Clubs",       value: clubs.length,       icon: clubIcon,   cls: "clubs-icon"   },
-                { label: "Games",       value: games.filter(g => g.participantIds.includes(user.id)).length, icon: gameIcon,      cls: "games-icon"      },
-                { label: "Quick Play",  value: qpSessions.filter(s => s.createdBy === user.id || s.playerIds.includes(user.id)).length, icon: quickplayIcon, cls: "quickplay-icon"  },
-                { label: "Tournaments", value: tournaments.length, icon: trophyIcon,    cls: "trophy-icon"     },
-                { label: "Leagues",     value: leagues.length,     icon: leagueIcon,    cls: "league-icon"     },
-              ].map(s => (
+                { label: "Buddies",     feature: org.features.buddies,     value: buddies.length,     icon: buddyIcon,  cls: "buddies-icon" },
+                { label: "Clubs",       feature: org.features.clubs,       value: clubs.length,       icon: clubIcon,   cls: "clubs-icon"   },
+                { label: "Games",       feature: org.features.games,       value: games.filter(g => g.participantIds.includes(user.id)).length, icon: gameIcon,      cls: "games-icon"      },
+                { label: "Quick Play",  feature: org.features.quickPlay,   value: qpSessions.filter(s => s.createdBy === user.id || s.playerIds.includes(user.id)).length, icon: quickplayIcon, cls: "quickplay-icon"  },
+                { label: "Tournaments", feature: org.features.tournaments, value: tournaments.length, icon: trophyIcon,    cls: "trophy-icon"     },
+                { label: "Leagues",     feature: org.features.leagues,     value: leagues.length,     icon: leagueIcon,    cls: "league-icon"     },
+              ].filter(s => s.feature !== false).map(s => (
                 <div key={s.label} className="stat-card">
                   <div className={`stat-icon ${s.cls}`}>
                     <img src={s.icon} alt="" />
@@ -1799,9 +1971,9 @@ export function App() {
                 {(user.duprId || user.duprRatingSingles != null || user.duprRatingDoubles != null || user.duprRatingMixed != null) && (
                   <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2, display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {user.duprId && <span style={{ color: "var(--text)" }}>ID: {user.duprId}</span>}
-                    {user.duprRatingSingles != null && <span style={{ color: "#f472b6", fontWeight: 600 }}>Singles ★ {user.duprRatingSingles}</span>}
-                    {user.duprRatingDoubles != null && <span style={{ color: "#f472b6", fontWeight: 600 }}>Doubles ★ {user.duprRatingDoubles}</span>}
-                    {user.duprRatingMixed != null && <span style={{ color: "#f472b6", fontWeight: 600 }}>Mixed ★ {user.duprRatingMixed}</span>}
+                    {user.duprRatingSingles != null && <span style={{ color: "#d6336c", fontWeight: 600 }}>Singles ★ {user.duprRatingSingles}</span>}
+                    {user.duprRatingDoubles != null && <span style={{ color: "#d6336c", fontWeight: 600 }}>Doubles ★ {user.duprRatingDoubles}</span>}
+                    {user.duprRatingMixed != null && <span style={{ color: "#d6336c", fontWeight: 600 }}>Mixed ★ {user.duprRatingMixed}</span>}
                   </div>
                 )}
               </div>
@@ -2416,13 +2588,13 @@ export function App() {
 
                   {/* Winners Circle */}
                   {qp.status === "COMPLETED" && qp.placements.length > 0 && (
-                    <div className="glass-card" style={{ background: "linear-gradient(135deg, rgba(251,191,36,.08) 0%, rgba(124,107,255,.08) 100%)", border: "1px solid rgba(251,191,36,.25)", textAlign: "center" }}>
-                      <div style={{ fontWeight: 800, fontSize: "1rem", color: "#fbbf24", marginBottom: 16, letterSpacing: ".04em", textTransform: "uppercase" }}>🏆 Winners Circle</div>
+                    <div className="glass-card" style={{ background: "linear-gradient(135deg, rgba(251,191,36,.08) 0%, rgba(124,107,255,.08) 100%)", border: "1px solid rgba(180,83,9,.3)", textAlign: "center" }}>
+                      <div style={{ fontWeight: 800, fontSize: "1rem", color: "#b45309", marginBottom: 16, letterSpacing: ".04em", textTransform: "uppercase" }}>🏆 Winners Circle</div>
                       <div style={{ display: "flex", justifyContent: "center", gap: 20, flexWrap: "wrap" }}>
                         {qp.placements.map(p => (
                           <div key={p.position} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                             <span style={{ fontSize: "2rem" }}>{p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : "🥉"}</span>
-                            <span style={{ fontWeight: 700, fontSize: "0.9rem", color: p.position === 1 ? "#fbbf24" : p.position === 2 ? "#94a3b8" : "#cd7c2b" }}>{qpName(p.playerIds)}</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.9rem", color: p.position === 1 ? "#b45309" : p.position === 2 ? "#64748b" : "#cd7c2b" }}>{qpName(p.playerIds)}</span>
                             <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600 }}>{p.label}</span>
                           </div>
                         ))}
@@ -2433,7 +2605,7 @@ export function App() {
                   {/* Edit panel — players + settings (SETUP / SCHEDULED only) */}
                   {isOrganizer && (qp.status === "SETUP" || qp.status === "SCHEDULED") && qpEditSettings && (
                     <div className="glass-card" style={{ padding: "14px 16px" }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#b8acff", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 12 }}>✏ Edit Session</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#5b4bd6", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 12 }}>✏ Edit Session</div>
 
                       {/* Player list */}
                       <div style={{ marginBottom: 12 }}>
@@ -2446,7 +2618,7 @@ export function App() {
                             </span>
                           ))}
                           {qp.guestNames.map(g => (
-                            <span key={g.id} className="div-label-chip" style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(251,191,36,.1)", borderColor: "rgba(251,191,36,.3)", color: "#fbbf24" }}>
+                            <span key={g.id} className="div-label-chip" style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(251,191,36,.1)", borderColor: "rgba(251,191,36,.3)", color: "#b45309" }}>
                               {g.name} (guest)
                               <button style={{ all: "unset", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }} onClick={() => onQpRemoveGuest(g.id)}>×</button>
                             </span>
@@ -2615,12 +2787,12 @@ export function App() {
                           </button>
                         )}
                         {qp.status === "PLAYOFFS" && bothSemisConfirmed && !thirdPlaceMatch && (
-                          <button className="btn-sm" style={{ background: "rgba(148,163,184,.12)", border: "1px solid rgba(148,163,184,.25)", color: "#94a3b8" }} disabled={loading} onClick={onCreateQpThirdPlace}>
+                          <button className="btn-sm" style={{ background: "rgba(100,116,139,.1)", border: "1px solid rgba(148,163,184,.25)", color: "#64748b" }} disabled={loading} onClick={onCreateQpThirdPlace}>
                             🥉 Add 3rd Place Match
                           </button>
                         )}
                         {qp.status === "PLAYOFFS" && finalsConfirmed && (
-                          <button className="btn-sm" style={{ background: "rgba(251,191,36,.22)", border: "1px solid rgba(251,191,36,.45)", color: "#fbbf24", fontWeight: 800 }} disabled={loading} onClick={onDeclareQpWinner}>
+                          <button className="btn-sm" style={{ background: "rgba(251,191,36,.22)", border: "1px solid rgba(251,191,36,.45)", color: "#b45309", fontWeight: 800 }} disabled={loading} onClick={onDeclareQpWinner}>
                             🏆 Declare Winner
                           </button>
                         )}
@@ -2658,7 +2830,7 @@ export function App() {
                           {/* Regular rounds */}
                           {rounds.length > 0 && (
                             <>
-                              <div style={{ fontWeight: 700, color: "#b8acff", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>Round Robin</div>
+                              <div style={{ fontWeight: 700, color: "#5b4bd6", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>Round Robin</div>
                               {rounds.map(rnd => {
                                 const rndMatches = regMatches.filter(m => m.roundNumber === rnd);
                                 const playingIds = new Set(rndMatches.flatMap(m => [...m.team1Ids, ...m.team2Ids]));
@@ -2709,7 +2881,7 @@ export function App() {
                           {/* Playoffs */}
                           {playoffMatches.length > 0 && (
                             <div style={{ marginTop: 20 }}>
-                              <div style={{ fontWeight: 700, color: "#fbbf24", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>🏆 Playoffs</div>
+                              <div style={{ fontWeight: 700, color: "#b45309", fontSize: "0.8rem", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>🏆 Playoffs</div>
                               {[...new Set(playoffMatches.map(m => m.roundNumber))].sort((a, b) => a - b).map(rnd => (
                                 <div key={rnd}>
                                   <div className="match-round-label">{rnd === 1 ? "Semi-finals" : rnd === 3 ? "🥉 3rd Place Match" : "Final"}</div>
@@ -3001,6 +3173,10 @@ export function App() {
                   <>
                     <button className="btn-back" onClick={() => setSelectedTournament(null)}>← All Tournaments</button>
 
+                    {t.bannerData && (
+                      <img src={t.bannerData} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 14, marginBottom: 14, border: "1px solid var(--border)" }} />
+                    )}
+
                     <div className="glass-card tourney-header">
                       <div className="tourney-header-top">
                         <div>
@@ -3021,7 +3197,7 @@ export function App() {
                         </div>
                         <div className="tourney-header-actions">
                           <span className={`badge ${t.status === "CANCELLED" ? "badge-cancelled" : t.status === "CLOSED" ? "badge-closed" : `badge-status-${t.status.toLowerCase()}`}`}>{t.status}</span>
-                          {t.isDuprReported && <span className="badge" style={{ background: "rgba(236,72,153,0.18)", border: "1px solid rgba(236,72,153,0.4)", color: "#f472b6", fontSize: "0.62rem" }}>DUPR</span>}
+                          {t.isDuprReported && <span className="badge" style={{ background: "rgba(236,72,153,0.18)", border: "1px solid rgba(236,72,153,0.4)", color: "#d6336c", fontSize: "0.62rem" }}>DUPR</span>}
                           {tournamentClub && <span className="badge badge-de" title={`Club: ${tournamentClub.name}`}>🏢 {tournamentClub.name}</span>}
                           {!myReg && t.status === "PLANNED" && (
                             isClubMember
@@ -3043,7 +3219,7 @@ export function App() {
                     {/* Cancelled banner */}
                     {t.status === "CANCELLED" && (
                       <div className="glass-card" style={{ borderColor: "rgba(239,68,68,.35)", background: "rgba(239,68,68,.06)", marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700, color: "#f87171", marginBottom: 6 }}>Tournament Cancelled</div>
+                        <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>Tournament Cancelled</div>
                         <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>{t.cancelledReason}</div>
                         {t.cancelledAt && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 4 }}>{new Date(t.cancelledAt).toLocaleString()}</div>}
                       </div>
@@ -3052,7 +3228,7 @@ export function App() {
                     {/* Closed / winners banner */}
                     {t.status === "CLOSED" && t.placements.length > 0 && (
                       <div className="glass-card" style={{ borderColor: "rgba(251,191,36,.35)", background: "rgba(251,191,36,.06)", marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700, color: "#fbbf24", marginBottom: 10 }}>Tournament Results</div>
+                        <div style={{ fontWeight: 700, color: "#b45309", marginBottom: 10 }}>Tournament Results</div>
                         {t.placements.map(p => {
                           const names = p.playerIds.map(id => {
                             const reg = t.registrations.find(r => r.playerId === id || r.partnerId === id);
@@ -3076,7 +3252,7 @@ export function App() {
                         <div className="organizer-panel-title">⚙ Organizer Controls</div>
                         <div className="organizer-controls">
                           <button className="btn-sm" style={{ background: "rgba(124,107,255,.18)", border: "1px solid rgba(124,107,255,.35)", color: "var(--accent)" }} onClick={() => {
-                            setEditTourneyInput({ name: t.name, location: t.location ?? "", startDate: t.startDate ?? "", endDate: t.endDate ?? "", registrationStartDate: t.registrationStartDate ?? "", registrationEndDate: t.registrationEndDate ?? "", withdrawDeadline: t.withdrawDeadline ?? "", description: t.description ?? "", maxTeams: t.maxTeams?.toString() ?? "", isDuprReported: t.isDuprReported ?? false });
+                            setEditTourneyInput({ name: t.name, location: t.location ?? "", startDate: t.startDate ?? "", endDate: t.endDate ?? "", registrationStartDate: t.registrationStartDate ?? "", registrationEndDate: t.registrationEndDate ?? "", withdrawDeadline: t.withdrawDeadline ?? "", description: t.description ?? "", maxTeams: t.maxTeams?.toString() ?? "", isDuprReported: t.isDuprReported ?? false }); setEditTourneyComms({ registrationContact: t.registrationContact ?? "", tournamentContact: t.tournamentContact ?? "" }); setEditTourneyCoordinators(t.coordinators ?? []);
                             setShowEditTourney(v => !v);
                           }}>✏ Edit Details</button>
                           {t.events.length === 0 && (t.status === "PLANNED" || t.status === "ACTIVE") && confirmedRegs.length >= 2 && (
@@ -3092,13 +3268,13 @@ export function App() {
                           )}
                           {/* Close tournament */}
                           {(t.status === "ACTIVE" || t.status === "COMPLETED") && (
-                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }} disabled={loading} onClick={() => { setShowCloseForm(v => !v); setShowCancelForm(false); }}>
+                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }} disabled={loading} onClick={() => { setShowCloseForm(v => !v); setShowCancelForm(false); }}>
                               🏆 Close & Declare Winners
                             </button>
                           )}
                           {/* Close Registration — always available while tournament is open */}
                           {!t.registrationClosed && (
-                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }}
+                            <button className="btn-sm" style={{ background: "rgba(217,119,6,.1)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }}
                               disabled={loading}
                               onClick={() => withError(async () => {
                                 await api.updateTournamentDetails(t.id, { organizerId: user.id, registrationClosed: true });
@@ -3109,7 +3285,7 @@ export function App() {
                           )}
                           {/* Open Registration — only when closed AND no division winners declared yet */}
                           {t.registrationClosed && t.placements.length === 0 && !["COMPLETED", "CLOSED"].includes(t.status) && (
-                            <button className="btn-sm" style={{ background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", color: "#4ade80" }}
+                            <button className="btn-sm" style={{ background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", color: "#15803d" }}
                               disabled={loading}
                               onClick={() => withError(async () => {
                                 await api.updateTournamentDetails(t.id, { organizerId: user.id, registrationClosed: false });
@@ -3119,12 +3295,12 @@ export function App() {
                             </button>
                           )}
                           {/* Register Player */}
-                          <button className="btn-sm" style={{ background: "rgba(124,107,255,.18)", border: "1px solid rgba(124,107,255,.35)", color: "#b8acff" }}
+                          <button className="btn-sm" style={{ background: "rgba(124,107,255,.18)", border: "1px solid rgba(124,107,255,.35)", color: "#5b4bd6" }}
                             onClick={() => { setShowOrgRegPanel(p => !p); setOrgRegTarget(null); setOrgRegQuery(""); setOrgRegResults([]); setOrgRegEventIds([]); setOrgRegAgeExpanded({}); }}>
                             👤 {showOrgRegPanel ? "Close" : "Register Player"}
                           </button>
                           {/* Cancel tournament */}
-                          <button className="btn-sm" style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", color: "#f87171" }} disabled={loading} onClick={() => { setShowCancelForm(v => !v); setShowCloseForm(false); }}>
+                          <button className="btn-sm" style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", color: "#dc2626" }} disabled={loading} onClick={() => { setShowCancelForm(v => !v); setShowCloseForm(false); }}>
                             ✕ Cancel Tournament
                           </button>
                         </div>
@@ -3235,7 +3411,7 @@ export function App() {
                                                   {types.length > 1 && (
                                                     <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                                                       {etLabel(evType)}
-                                                      {isGenderBlocked && <span style={{ fontSize: "0.62rem", color: "#f87171", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
+                                                      {isGenderBlocked && <span style={{ fontSize: "0.62rem", color: "#dc2626", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
                                                     </div>
                                                   )}
                                                   {/* Already-registered rows for this event type */}
@@ -3246,14 +3422,14 @@ export function App() {
                                                     const reg = myReg ?? asPartnerReg!;
                                                     return (
                                                       <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "5px 8px", background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 7 }}>
-                                                        <span style={{ fontSize: "0.75rem", color: "#4ade80", flex: 1 }}>
+                                                        <span style={{ fontSize: "0.75rem", color: "#15803d", flex: 1 }}>
                                                           {asPartnerReg
                                                             ? `✓ Enrolled as partner — ${ev.skillLevel} · ${abLabel(ev.ageBracket)} (w/ ${asPartnerReg.playerName})`
                                                             : `✓ Registered — ${ev.skillLevel} · ${abLabel(ev.ageBracket)}${myReg!.partnerName ? ` (w/ ${myReg!.partnerName})` : ""}`
                                                           }
                                                         </span>
                                                         {myReg && (
-                                                          <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#f87171", padding: "2px 8px" }}
+                                                          <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#dc2626", padding: "2px 8px" }}
                                                             disabled={loading} onClick={() => onOrgWithdrawRegistration(t.id, reg.id)}>
                                                             Withdraw
                                                           </button>
@@ -3286,7 +3462,7 @@ export function App() {
                                                             });
                                                           }}>
                                                           {abLabel(age)}
-                                                          {alreadyInAge && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                          {alreadyInAge && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                         </button>
                                                       );
                                                     })}
@@ -3321,7 +3497,7 @@ export function App() {
                                                                   });
                                                                 }}>
                                                                 {ev.skillLevel}
-                                                                {isAlreadyReg && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                                {isAlreadyReg && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                                 {isSel && !isAlreadyReg && <span style={{ marginLeft: 3, color: "#e879f9" }}>●</span>}
                                                               </button>
                                                             );
@@ -3431,14 +3607,14 @@ export function App() {
                                     const cats = [...new Set(orgRegEventIds.map(evCatLabel).filter(Boolean) as string[])];
                                     return (
                                       <div style={{ padding: "10px 12px", background: "rgba(236,72,153,0.06)", border: "1px solid rgba(236,72,153,0.2)", borderRadius: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f472b6", textTransform: "uppercase", letterSpacing: "0.05em" }}>DUPR Info <span style={{ color: "#f87171" }}>*</span></div>
+                                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#d6336c", textTransform: "uppercase", letterSpacing: "0.05em" }}>DUPR Info <span style={{ color: "#dc2626" }}>*</span></div>
                                         <div className="field" style={{ margin: 0 }}>
                                           <label style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 3 }}>DUPR ID</label>
                                           <input value={orgDuprId} onChange={e => setOrgDuprId(e.target.value)} placeholder="Player's DUPR ID" style={{ fontSize: "0.82rem" }} />
                                         </div>
                                         {cats.map(cat => (
                                           <div key={cat} className="field" style={{ margin: 0 }}>
-                                            <label style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 3 }}>{cat} DUPR Rating <span style={{ color: "#f87171" }}>*</span></label>
+                                            <label style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 3 }}>{cat} DUPR Rating <span style={{ color: "#dc2626" }}>*</span></label>
                                             <input type="number" min="0" max="8" step="0.01"
                                               value={orgDuprRatings[cat] ?? ""}
                                               onChange={e => setOrgDuprRatings(p => ({ ...p, [cat]: e.target.value }))}
@@ -3520,6 +3696,51 @@ export function App() {
                                 <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400 }}>(requires DUPR ID + rating on registration)</span>
                               </label>
                             </div>
+                            <div className="field-row">
+                              <div className="field">
+                                <label>Registration Contact</label>
+                                <input placeholder="e.g. WhatsApp +1 555… (registration team)" value={editTourneyComms.registrationContact}
+                                  onChange={e => setEditTourneyComms(p => ({ ...p, registrationContact: e.target.value }))} />
+                              </div>
+                              <div className="field">
+                                <label>Tournament Contact</label>
+                                <input placeholder="e.g. tournamentdesk@…, +1 555…" value={editTourneyComms.tournamentContact}
+                                  onChange={e => setEditTourneyComms(p => ({ ...p, tournamentContact: e.target.value }))} />
+                              </div>
+                            </div>
+                            <div className="field">
+                              <label>Coordinators</label>
+                              {editTourneyCoordinators.map((c, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                                  <input placeholder="Name" value={c.name} style={{ flex: 2 }}
+                                    onChange={e => setEditTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                                  <input placeholder="Role (optional)" value={c.role ?? ""} style={{ flex: 2 }}
+                                    onChange={e => setEditTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} />
+                                  <input placeholder="Contact" value={c.contact ?? ""} style={{ flex: 2 }}
+                                    onChange={e => setEditTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, contact: e.target.value } : x))} />
+                                  <button type="button" className="btn-ghost" onClick={() => setEditTourneyCoordinators(prev => prev.filter((_, j) => j !== i))}>✕</button>
+                                </div>
+                              ))}
+                              <button type="button" className="btn-ghost" style={{ alignSelf: "flex-start" }}
+                                onClick={() => setEditTourneyCoordinators(prev => [...prev, { name: "", role: "", contact: "" }])}>+ Add coordinator</button>
+                            </div>
+                            <div className="field">
+                              <label>Tournament Banner</label>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                {(editTourneyBanner ?? t.bannerData) && editTourneyBanner !== null && (
+                                  <img src={editTourneyBanner ?? t.bannerData} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />
+                                )}
+                                <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+                                  onChange={async e => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    try { setEditTourneyBanner(await fileToDataUrl(f, 1_500_000)); } catch (err) { setError((err as Error).message); }
+                                  }} />
+                                {(t.bannerData || editTourneyBanner) && editTourneyBanner !== null && (
+                                  <button type="button" className="btn-sm" onClick={() => setEditTourneyBanner(null)}>Remove banner</button>
+                                )}
+                              </div>
+                            </div>
                             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                               <button className="btn-primary" style={{ flex: 1 }} disabled={loading} onClick={() => onUpdateTourneyDetails(t.id)}>Save Changes</button>
                               <button className="btn-sm" disabled={loading} onClick={() => setShowEditTourney(false)}>Cancel</button>
@@ -3530,7 +3751,7 @@ export function App() {
                         {/* Close form */}
                         {showCloseForm && (
                           <form onSubmit={onCloseTournament} className="stack-form" style={{ marginTop: 16, borderTop: "1px solid rgba(251,191,36,.2)", paddingTop: 14 }}>
-                            <div style={{ fontWeight: 700, color: "#fbbf24", marginBottom: 10, fontSize: "0.85rem" }}>Declare Winners</div>
+                            <div style={{ fontWeight: 700, color: "#b45309", marginBottom: 10, fontSize: "0.85rem" }}>Declare Winners</div>
                             {placementInputs.map((p, i) => (
                               <div key={p.position} className="field-row" style={{ alignItems: "flex-end" }}>
                                 <div className="field" style={{ minWidth: 110 }}>
@@ -3554,7 +3775,7 @@ export function App() {
                               </div>
                             ))}
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button type="submit" className="btn-sm" style={{ background: "rgba(251,191,36,.25)", border: "1px solid rgba(251,191,36,.4)", color: "#fbbf24" }} disabled={loading}>Close Tournament</button>
+                              <button type="submit" className="btn-sm" style={{ background: "rgba(180,83,9,.3)", border: "1px solid rgba(180,83,9,.4)", color: "#b45309" }} disabled={loading}>Close Tournament</button>
                               <button type="button" className="btn-sm" disabled={loading} onClick={() => setShowCloseForm(false)}>Cancel</button>
                             </div>
                           </form>
@@ -3562,14 +3783,14 @@ export function App() {
 
                         {/* Cancel form */}
                         {showCancelForm && (
-                          <form onSubmit={onCancelTournament} className="stack-form" style={{ marginTop: 16, borderTop: "1px solid rgba(239,68,68,.2)", paddingTop: 14 }}>
-                            <div style={{ fontWeight: 700, color: "#f87171", marginBottom: 8, fontSize: "0.85rem" }}>Cancel Tournament</div>
+                          <form onSubmit={onCancelTournament} className="stack-form" style={{ marginTop: 16, borderTop: "1px solid rgba(220,38,38,.1)", paddingTop: 14 }}>
+                            <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 8, fontSize: "0.85rem" }}>Cancel Tournament</div>
                             <div className="field">
                               <label>Reason (required)</label>
                               <input placeholder="e.g. Venue unavailable, insufficient registrations…" value={cancelReason} onChange={e => setCancelReason(e.target.value)} autoFocus />
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button type="submit" className="btn-sm" style={{ background: "rgba(239,68,68,.2)", border: "1px solid rgba(239,68,68,.4)", color: "#f87171" }} disabled={loading || !cancelReason.trim()}>Confirm Cancellation</button>
+                              <button type="submit" className="btn-sm" style={{ background: "rgba(220,38,38,.1)", border: "1px solid rgba(220,38,38,.35)", color: "#dc2626" }} disabled={loading || !cancelReason.trim()}>Confirm Cancellation</button>
                               <button type="button" className="btn-sm" disabled={loading} onClick={() => setShowCancelForm(false)}>Dismiss</button>
                             </div>
                           </form>
@@ -3596,6 +3817,25 @@ export function App() {
                     {/* Overview tab */}
                     {tourneyDetailTab === "overview" && (
                       <div className="content-grid">
+                        {(t.registrationContact || t.tournamentContact) && (
+                          <div className="glass-card" style={{ gridColumn: "1 / -1" }}>
+                            <h3 className="card-title">Contact &amp; Communication</h3>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "1.2rem" }}>
+                              {t.registrationContact && (
+                                <div style={{ minWidth: 220 }}>
+                                  <div className="entity-sub" style={{ marginBottom: 2 }}>Registration team</div>
+                                  <div className="entity-name" style={{ whiteSpace: "pre-wrap" }}>{t.registrationContact}</div>
+                                </div>
+                              )}
+                              {t.tournamentContact && (
+                                <div style={{ minWidth: 220 }}>
+                                  <div className="entity-sub" style={{ marginBottom: 2 }}>Tournament desk</div>
+                                  <div className="entity-name" style={{ whiteSpace: "pre-wrap" }}>{t.tournamentContact}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <div className="glass-card">
                           <h3 className="card-title">Tournament Info</h3>
                           <div className="stack-form">
@@ -3648,7 +3888,7 @@ export function App() {
                               </li>}
                               <li style={{ background: "none", border: "none", padding: "4px 0" }}>
                                 <span className="entity-sub" style={{ minWidth: 90 }}>Registration</span>
-                                <span className="entity-name" style={{ color: t.registrationClosed ? "#f59e0b" : "#4ade80" }}>
+                                <span className="entity-name" style={{ color: t.registrationClosed ? "#f59e0b" : "#15803d" }}>
                                   {t.registrationClosed ? "🔒 Closed" : "🔓 Open"}
                                 </span>
                               </li>
@@ -3721,11 +3961,11 @@ export function App() {
                                             {types.length > 1 && (
                                               <div style={{ fontSize: "0.8rem", color: isGenderBlocked ? "var(--muted)" : "var(--muted)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                                                 {etLabel(evType)}
-                                                {isGenderBlocked && <span style={{ fontSize: "0.68rem", color: "#f87171", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
+                                                {isGenderBlocked && <span style={{ fontSize: "0.68rem", color: "#dc2626", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 4, padding: "1px 5px" }}>gender conflict</span>}
                                               </div>
                                             )}
                                             {!types.length || types.length === 1 ? isGenderBlocked && (
-                                              <div style={{ fontSize: "0.72rem", color: "#f87171", marginBottom: 6 }}>Not available — gender conflict with current selection</div>
+                                              <div style={{ fontSize: "0.72rem", color: "#dc2626", marginBottom: 6 }}>Not available — gender conflict with current selection</div>
                                             ) : null}
                                             {/* Already-registered rows with withdraw */}
                                             {typeEvents.map(ev => {
@@ -3735,7 +3975,7 @@ export function App() {
                                               if (asPartnerReg) {
                                                 return (
                                                   <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "5px 8px", background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 7 }}>
-                                                    <span style={{ fontSize: "0.75rem", color: "#4ade80", flex: 1 }}>
+                                                    <span style={{ fontSize: "0.75rem", color: "#15803d", flex: 1 }}>
                                                       ✓ Enrolled as partner — {ev.skillLevel} · {abLabel(ev.ageBracket)} (w/ {asPartnerReg.playerName})
                                                     </span>
                                                   </div>
@@ -3744,11 +3984,11 @@ export function App() {
                                               const pastDeadline = t.withdrawDeadline ? new Date() > new Date(t.withdrawDeadline) : false;
                                               return (
                                                 <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "5px 8px", background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 7 }}>
-                                                  <span style={{ fontSize: "0.75rem", color: "#4ade80", flex: 1 }}>
+                                                  <span style={{ fontSize: "0.75rem", color: "#15803d", flex: 1 }}>
                                                     ✓ Registered — {ev.skillLevel} · {abLabel(ev.ageBracket)}{myReg!.partnerName ? ` (w/ ${myReg!.partnerName})` : ""}
                                                   </span>
                                                   {!pastDeadline && t.status === "PLANNED" && (
-                                                    <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#f87171", padding: "2px 8px" }}
+                                                    <button className="btn-sm" style={{ fontSize: "0.68rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.35)", color: "#dc2626", padding: "2px 8px" }}
                                                       disabled={loading} onClick={() => onUnregister(t.id, myReg!.id)}>
                                                       Withdraw
                                                     </button>
@@ -3794,7 +4034,7 @@ export function App() {
                                                       });
                                                     }}>
                                                     {abLabel(age)}
-                                                    {alreadyInAge && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                    {alreadyInAge && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                   </button>
                                                 );
                                               })}
@@ -3830,7 +4070,7 @@ export function App() {
                                                             });
                                                           }}>
                                                           {ev.skillLevel}
-                                                          {alreadyReg && <span style={{ marginLeft: 3, color: "#4ade80" }}>✓</span>}
+                                                          {alreadyReg && <span style={{ marginLeft: 3, color: "#15803d" }}>✓</span>}
                                                         </button>
                                                       );
                                                     })}
@@ -3882,7 +4122,7 @@ export function App() {
                                                             </div>
                                                             <div className="field" style={{ margin: 0 }}>
                                                               <label>
-                                                                {partner.name}'s DUPR ID{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                                                {partner.name}'s DUPR ID{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                                               </label>
                                                               <div className="field-icon">
                                                                 <span className="icon-adorn icon-adorn-pink">
@@ -3897,7 +4137,7 @@ export function App() {
                                                             </div>
                                                             <div className="field" style={{ margin: 0 }}>
                                                               <label>
-                                                                {partner.name}'s {etLabel(selEv.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                                                {partner.name}'s {etLabel(selEv.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                                               </label>
                                                               <div className="field-icon">
                                                                 <span className="icon-adorn icon-adorn-pink">
@@ -3951,7 +4191,7 @@ export function App() {
                                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                                   <div className="field">
                                     <label>
-                                      Your DUPR ID {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                      Your DUPR ID {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                     </label>
                                     <div className="field-icon">
                                       <span className="icon-adorn icon-adorn-pink">
@@ -4010,6 +4250,20 @@ export function App() {
                                     );
                                   })()}
                                 </div>
+                                {selectedEvObjs.length > 0 && (
+                                  <div className="field" style={{ marginTop: 6 }}>
+                                    <label>Payment proof (optional JPG/photo)</label>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      {regPaymentProof && <img src={regPaymentProof} alt="" style={{ height: 36, borderRadius: 6 }} />}
+                                      <input type="file" accept="image/*" style={{ fontSize: "0.78rem", color: "var(--muted)" }}
+                                        onChange={e => onRegProofFile(e.target.files?.[0])} />
+                                    </div>
+                                    <p className="entity-sub" style={{ marginTop: 4 }}>
+                                      Uploading is optional — if you skip it, share your payment confirmation with the registration team
+                                      {t.registrationContact ? ` (${t.registrationContact})` : " via WhatsApp or the contact listed above"} to get confirmed.
+                                    </p>
+                                  </div>
+                                )}
                                 {selectedEvObjs.length > 0 ? (
                                   <button className="btn-primary" disabled={loading} onClick={() => onRegisterForTournament(t.id)} style={{ marginTop: 4 }}>
                                     Register for {selectedEvObjs.length} division{selectedEvObjs.length !== 1 ? "s" : ""}
@@ -4028,13 +4282,13 @@ export function App() {
                             return (
                               <div className="glass-card">
                                 {t.isDuprReported && (
-                                  <div style={{ marginBottom: 6, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#f472b6" }}>
+                                  <div style={{ marginBottom: 6, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#d6336c" }}>
                                     DUPR Reported — DUPR ID and Rating required
                                   </div>
                                 )}
                                 <div className="field" style={{ marginBottom: 8 }}>
                                   <label>
-                                    Your DUPR ID {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                    Your DUPR ID {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                   </label>
                                   <div className="field-icon">
                                     <span className="icon-adorn icon-adorn-pink">
@@ -4049,7 +4303,7 @@ export function App() {
                                 </div>
                                 <div className="field" style={{ marginBottom: 8 }}>
                                   <label>
-                                    Your Singles DUPR Rating {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                    Your Singles DUPR Rating {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                   </label>
                                   <div className="field-icon">
                                     <span className="icon-adorn icon-adorn-pink">
@@ -4068,7 +4322,7 @@ export function App() {
                             <div className="glass-card">
                               <h3 className="card-title">Register with Partner</h3>
                               {t.isDuprReported && (
-                                <div style={{ marginBottom: 10, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#f472b6" }}>
+                                <div style={{ marginBottom: 10, padding: "4px 8px", background: "rgba(236,72,153,0.08)", border: "1px solid rgba(236,72,153,0.25)", borderRadius: 6, fontSize: "0.72rem", color: "#d6336c" }}>
                                   DUPR Reported — DUPR ID and Rating required for you{selectedPartner ? " and your partner" : ""}
                                 </div>
                               )}
@@ -4114,7 +4368,7 @@ export function App() {
                               )}
                               <div className="field" style={{ marginTop: 10, marginBottom: 4 }}>
                                 <label>
-                                  Your DUPR ID {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                  Your DUPR ID {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                 </label>
                                 <div className="field-icon">
                                   <span className="icon-adorn icon-adorn-pink">
@@ -4129,7 +4383,7 @@ export function App() {
                               </div>
                               <div className="field" style={{ marginBottom: 4 }}>
                                 <label>
-                                  Your {etLabel(t.eventType)} DUPR Rating {t.isDuprReported ? <span style={{ color: "#f87171" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
+                                  Your {etLabel(t.eventType)} DUPR Rating {t.isDuprReported ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}>(optional)</span>}
                                 </label>
                                 <div className="field-icon">
                                   <span className="icon-adorn icon-adorn-pink">
@@ -4147,7 +4401,7 @@ export function App() {
                                   </div>
                                   <div className="field" style={{ margin: 0 }}>
                                     <label>
-                                      DUPR ID{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                      DUPR ID{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                     </label>
                                     <div className="field-icon">
                                       <span className="icon-adorn icon-adorn-pink">
@@ -4159,7 +4413,7 @@ export function App() {
                                   </div>
                                   <div className="field" style={{ margin: 0 }}>
                                     <label>
-                                      {etLabel(t.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#f87171" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
+                                      {etLabel(t.eventType)} Rating{t.isDuprReported ? <span style={{ color: "#dc2626" }}> *</span> : <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "var(--muted)", fontSize: "0.7rem" }}> (optional)</span>}
                                     </label>
                                     <div className="field-icon">
                                       <span className="icon-adorn icon-adorn-pink">
@@ -4235,12 +4489,12 @@ export function App() {
                                                     <span key={reg.id} style={{ fontSize: "0.72rem", background: "rgba(124,107,255,.12)", border: "1px solid rgba(124,107,255,.3)", borderRadius: 6, padding: "2px 7px", color: "var(--text)", display: "flex", alignItems: "center", gap: 4 }}>
                                                       {ev ? `${etLabel(ev.eventType)} · ${ev.skillLevel} · ${abLabel(ev.ageBracket)}` : "General"}
                                                       {coPlayerName && <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>w/ {coPlayerName}</span>}
-                                                      {!isAsPartner && reg.playerDuprRating !== undefined && <span style={{ color: "#f472b6", fontWeight: 600 }}>★{reg.playerDuprRating}</span>}
-                                                      {isAsPartner && reg.partnerDuprRating !== undefined && <span style={{ color: "#f472b6", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
+                                                      {!isAsPartner && reg.playerDuprRating !== undefined && <span style={{ color: "#d6336c", fontWeight: 600 }}>★{reg.playerDuprRating}</span>}
+                                                      {isAsPartner && reg.partnerDuprRating !== undefined && <span style={{ color: "#d6336c", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
                                                       {reg.status === "PENDING_PARTNER" && <span style={{ color: "#f59e0b", fontSize: "0.65rem" }}>⏳</span>}
-                                                      {reg.status === "CONFIRMED" && <span style={{ color: "#4ade80", fontSize: "0.65rem" }}>✓</span>}
+                                                      {reg.status === "CONFIRMED" && <span style={{ color: "#15803d", fontSize: "0.65rem" }}>✓</span>}
                                                       {isOrganizer && (
-                                                        <button style={{ marginLeft: 2, padding: "0 4px", fontSize: "0.65rem", background: "rgba(248,113,113,0.15)", border: "none", borderRadius: 3, color: "#f87171", cursor: "pointer", lineHeight: "14px" }}
+                                                        <button style={{ marginLeft: 2, padding: "0 4px", fontSize: "0.65rem", background: "rgba(248,113,113,0.15)", border: "none", borderRadius: 3, color: "#dc2626", cursor: "pointer", lineHeight: "14px" }}
                                                           disabled={loading} title="Withdraw this registration"
                                                           onClick={() => onOrgWithdrawRegistration(t.id, reg.id)}>✕</button>
                                                       )}
@@ -4249,9 +4503,37 @@ export function App() {
                                                 })}
                                               </div>
                                             </div>
-                                            <span className={`badge ${anyPending ? "badge-status-pending" : "badge-status-confirmed"}`} style={{ marginTop: 2 }}>
-                                              {anyPending ? "Pending" : "Confirmed"}
-                                            </span>
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                              <span className={`badge ${anyPending ? "badge-status-pending" : "badge-status-confirmed"}`} style={{ marginTop: 2 }}>
+                                                {anyPending ? "Pending" : "Confirmed"}
+                                              </span>
+                                              {(() => {
+                                                const ownReg = regs.find(r => r.playerId === pid);
+                                                if (!ownReg) return null;
+                                                const ps = ownReg.paymentStatus ?? "NONE";
+                                                return (
+                                                  <>
+                                                    <span className="badge" style={{
+                                                      background: ps === "APPROVED" ? "rgba(22,163,74,.1)" : ps === "PENDING" ? "rgba(217,119,6,.1)" : "rgba(100,116,139,.1)",
+                                                      border: `1px solid ${ps === "APPROVED" ? "rgba(22,163,74,.35)" : ps === "PENDING" ? "rgba(217,119,6,.35)" : "rgba(100,116,139,.3)"}`,
+                                                      color: ps === "APPROVED" ? "#15803d" : ps === "PENDING" ? "#b45309" : "var(--muted)"
+                                                    }}>
+                                                      {ps === "APPROVED" ? "💰 Paid" : ps === "PENDING" ? "💰 Proof pending" : "💰 No proof"}
+                                                    </span>
+                                                    {isOrganizer && ps === "PENDING" && ownReg.hasPaymentProof && (
+                                                      <div style={{ display: "flex", gap: 4 }}>
+                                                        <button className="btn-sm" onClick={() => onViewPaymentProof(t.id, ownReg.id)}>View</button>
+                                                        <button className="btn-sm" style={{ color: "#15803d" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Approve</button>
+                                                        <button className="btn-sm" style={{ color: "#dc2626" }} onClick={() => onReviewPayment(t.id, ownReg.id, "REJECT")}>Reject</button>
+                                                      </div>
+                                                    )}
+                                                    {isOrganizer && ps === "NONE" && (
+                                                      <button className="btn-sm" style={{ color: "#15803d" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Mark paid</button>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()}
+                                            </div>
                                           </div>
                                         );
                                       })}
@@ -4269,8 +4551,8 @@ export function App() {
                                                     <span key={reg.id} style={{ fontSize: "0.72rem", background: "rgba(124,107,255,.12)", border: "1px solid rgba(124,107,255,.3)", borderRadius: 6, padding: "2px 7px", color: "var(--text)", display: "flex", alignItems: "center", gap: 4 }}>
                                                       {ev ? `${etLabel(ev.eventType)} · ${ev.skillLevel} · ${abLabel(ev.ageBracket)}` : "General"}
                                                       <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>w/ {reg.playerName}</span>
-                                                      {reg.partnerDuprRating !== undefined && <span style={{ color: "#f472b6", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
-                                                      <span style={{ color: "#4ade80", fontSize: "0.65rem" }}>✓</span>
+                                                      {reg.partnerDuprRating !== undefined && <span style={{ color: "#d6336c", fontWeight: 600 }}>★{reg.partnerDuprRating}</span>}
+                                                      <span style={{ color: "#15803d", fontSize: "0.65rem" }}>✓</span>
                                                     </span>
                                                   );
                                                 })}
@@ -4316,6 +4598,51 @@ export function App() {
 
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          {/* Organizer: add / remove divisions after creation */}
+                          {isOrganizer && (
+                            <div className="glass-card" style={{ padding: "10px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Divisions</div>
+                                <button className="btn-sm" onClick={() => setShowAddDivision(v => !v)}>
+                                  {showAddDivision ? "✕ Cancel" : "+ Add division"}
+                                </button>
+                              </div>
+                              {showAddDivision && (
+                                <div className="field-row" style={{ marginTop: 10, alignItems: "flex-end" }}>
+                                  <div className="field">
+                                    <label>Event</label>
+                                    <select value={addDivInput.eventType} onChange={e => setAddDivInput(p => ({ ...p, eventType: e.target.value }))}>
+                                      {EVENT_TYPES.map(et => <option key={et.value} value={et.value}>{et.label}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="field">
+                                    <label>Skill Level</label>
+                                    <select value={addDivInput.skillLevel} onChange={e => setAddDivInput(p => ({ ...p, skillLevel: e.target.value }))}>
+                                      {SKILL_LEVELS.map(sl => <option key={sl} value={sl}>{sl}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="field">
+                                    <label>Age Group</label>
+                                    <select value={addDivInput.ageBracket} onChange={e => setAddDivInput(p => ({ ...p, ageBracket: e.target.value as "OPEN" | "YOUNG" | "SENIOR" }))}>
+                                      <option value="OPEN">Open Age</option>
+                                      <option value="YOUNG">Young (u35)</option>
+                                      <option value="SENIOR">Senior (50+)</option>
+                                    </select>
+                                  </div>
+                                  <button className="btn-primary" style={{ width: "auto", padding: "0.5rem 1rem" }} disabled={loading}
+                                    onClick={() => onAddDivision(t.id)}>Add</button>
+                                </div>
+                              )}
+                              {isOrganizer && activeDivision && divRegs.length === 0 && divMatches.length === 0 && (
+                                <div style={{ marginTop: 8 }}>
+                                  <button className="btn-ghost" style={{ color: "#dc2626", fontSize: "0.75rem" }}
+                                    onClick={() => onRemoveDivision(t.id, activeDivision.id)}>
+                                    Remove selected division ({etLabel(activeDivision.eventType)} · {activeDivision.skillLevel}) — it has no registrations
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {/* Division selector — grouped by category */}
                           {t.events.length > 0 && (
                             <div className="glass-card" style={{ padding: "10px 14px" }}>
@@ -4370,7 +4697,7 @@ export function App() {
                             <>
                               {/* Per-division header */}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "2px 0" }}>
-                                <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#b8acff" }}>
+                                <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#5b4bd6" }}>
                                   {etLabel(activeDivision.eventType)} · {activeDivision.skillLevel} · {abLabel(activeDivision.ageBracket)}
                                 </span>
                                 <span className="entity-sub" style={{ fontSize: "0.72rem" }}>{divRegs.length} confirmed</span>
@@ -4442,7 +4769,7 @@ export function App() {
                                           style={{ fontSize: "0.7rem", background: showGroupsPanel ? "rgba(124,107,255,.25)" : undefined }}
                                           onClick={() => setShowGroupsPanel(p => !p)}>
                                           🗂 Groups {showGroupsPanel ? "▲" : "▼"}
-                                          {groupsFinalized && <span style={{ marginLeft: 6, fontSize: "0.65rem", color: "#4ade80", fontWeight: 700 }}>✓ Finalized</span>}
+                                          {groupsFinalized && <span style={{ marginLeft: 6, fontSize: "0.65rem", color: "#15803d", fontWeight: 700 }}>✓ Finalized</span>}
                                         </button>
                                         {showGroupsPanel && (
                                           <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", background: "rgba(124,107,255,0.05)", border: "1px solid rgba(124,107,255,0.2)", borderRadius: 9 }}>
@@ -4461,7 +4788,7 @@ export function App() {
                                             </div>
                                             {!groupsFinalized && (
                                               <button className="btn-sm"
-                                                style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700 }}
+                                                style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700 }}
                                                 disabled={loading || unassignedRegs.length > 0}
                                                 onClick={async () => { await withError(async () => { await api.finalizeGroups(t.id, activeDivId!, user!.id); await selectTournament(t.id); }); }}>
                                                 ✓ Finalize Groups
@@ -4469,7 +4796,7 @@ export function App() {
                                               </button>
                                             )}
                                             {groupsFinalized && (
-                                              <span style={{ fontSize: "0.72rem", color: "#4ade80", fontWeight: 600 }}>✓ Groups finalized — schedule can now be generated below.</span>
+                                              <span style={{ fontSize: "0.72rem", color: "#15803d", fontWeight: 600 }}>✓ Groups finalized — schedule can now be generated below.</span>
                                             )}
                                           </div>
                                         )}
@@ -4498,7 +4825,7 @@ export function App() {
                                     {divScheduleMatches.length > 0 && !scheduleFinalized && (
                                       <div style={{ marginBottom: 10 }}>
                                         <button className="btn-sm"
-                                          style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700 }}
+                                          style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700 }}
                                           disabled={loading}
                                           onClick={async () => { await withError(async () => { await api.finalizeSchedule(t.id, activeDivId!, user!.id); await selectTournament(t.id); }); }}>
                                           🗓 Publish Schedule to Participants
@@ -4533,20 +4860,20 @@ export function App() {
                                       return (
                                         <div className="organizer-controls" style={{ flexWrap: "wrap" }}>
                                           {!isFinalized && allConfirmed && (
-                                            <button className="btn-sm" style={{ background: "rgba(74,222,128,.18)", border: "1px solid rgba(74,222,128,.35)", color: "#4ade80" }}
+                                            <button className="btn-sm" style={{ background: "rgba(74,222,128,.18)", border: "1px solid rgba(74,222,128,.35)", color: "#15803d" }}
                                               disabled={loading}
                                               onClick={async () => { await withError(async () => { await api.finalizeRR(t.id, activeDivId!, user!.id); await selectTournament(t.id); }); }}>
                                               ✓ Finalize Round Robin
                                             </button>
                                           )}
                                           {isFinalized && canSubDivide && (
-                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }}
+                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }}
                                               disabled={loading} onClick={() => onCreateSubDivisions(t.id, activeDivId!)}>
                                               🏆 {divSubDivs.length > 0 ? "Re-create" : "Create"} Sub-Divisions
                                             </button>
                                           )}
                                           {(isFinalized || noGroupsPlayoffReady) && !canSubDivide && (
-                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#fbbf24" }}
+                                            <button className="btn-sm" style={{ background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.35)", color: "#b45309" }}
                                               disabled={loading} onClick={() => onCreatePlayoffs(t.id, activeDivId!)}>
                                               🏆 {divPlayoffMatches.length > 0 ? "Re-create" : "Create"} Play Offs
                                             </button>
@@ -4585,7 +4912,7 @@ export function App() {
                                   ) : (
                                     <>
                                     {isOrganizer && !divScheduleFinalized && (
-                                      <div style={{ margin: "0 0 10px", padding: "8px 12px", background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 8, fontSize: "0.72rem", color: "#fbbf24", fontWeight: 600 }}>
+                                      <div style={{ margin: "0 0 10px", padding: "8px 12px", background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 8, fontSize: "0.72rem", color: "#b45309", fontWeight: 600 }}>
                                         Draft — not yet visible to participants. Click "Publish Schedule" in Division Controls to share.
                                       </div>
                                     )}
@@ -4647,7 +4974,7 @@ export function App() {
                                           const rounds = [...new Set(gMatches.map(m => m.roundNumber))].sort((a,b) => a-b);
                                           return (
                                             <div key={group.id} style={{ marginBottom: 16 }}>
-                                              <div className="match-round-label" style={{ color: "#b8acff" }}>{group.name}</div>
+                                              <div className="match-round-label" style={{ color: "#5b4bd6" }}>{group.name}</div>
                                               {rounds.map(round => (
                                                 <div key={round}>
                                                   <div className="match-round-label" style={{ fontSize: "0.68rem", color: "var(--muted)", paddingLeft: 4 }}>Round {round}</div>
@@ -4706,7 +5033,7 @@ export function App() {
                                     return (
                                       <div key={group.id} className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
-                                          <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#b8acff" }}>{group.name}</div>
+                                          <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#5b4bd6" }}>{group.name}</div>
                                           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                             {groupMatches.length > 0 && <span className="entity-sub" style={{ fontSize: "0.72rem" }}>{confirmedGroupMatches}/{groupMatches.length} scored</span>}
                                           </div>
@@ -4763,7 +5090,7 @@ export function App() {
                                     return (
                                       <div key={sd.id} className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
-                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#fbbf24" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
+                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#b45309" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             <span className="entity-sub" style={{ fontSize: "0.72rem" }}>{sd.members.length} players</span>
                                             {isOrganizer && sd.members.length >= 2 && (
@@ -4778,8 +5105,8 @@ export function App() {
                                           {sd.members.map(m => {
                                             const reg = t.registrations.find(r => r.id === m.registrationId);
                                             return (
-                                              <span key={m.registrationId} style={{ fontSize: "0.75rem", background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", borderRadius: 8, padding: "2px 8px" }}>
-                                                <span style={{ color: "#fbbf24", fontWeight: 700, marginRight: 4 }}>#{m.seed}</span>
+                                              <span key={m.registrationId} style={{ fontSize: "0.75rem", background: "rgba(251,191,36,.08)", border: "1px solid rgba(180,83,9,.3)", borderRadius: 8, padding: "2px 8px" }}>
+                                                <span style={{ color: "#b45309", fontWeight: 700, marginRight: 4 }}>#{m.seed}</span>
                                                 {reg ? (reg.playerName + (reg.partnerName ? ` & ${reg.partnerName}` : "")) : m.registrationId.slice(-4)}
                                               </span>
                                             );
@@ -4820,17 +5147,17 @@ export function App() {
                                     return (
                                       <div className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#f472b6" }}>🏆 Play Offs</div>
+                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#d6336c" }}>🏆 Play Offs</div>
                                           {isOrganizer && (
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                               {sfAllConfirmed && !thirdPlaceMatch && (
-                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#b8acff" }}
+                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#5b4bd6" }}
                                                   disabled={loading} onClick={() => onCreateThirdPlaceMatch(t.id, activeDivId!)}>
                                                   + 3rd Place Match
                                                 </button>
                                               )}
                                               {finalConfirmed && divWinners.length === 0 && (
-                                                <button className="btn-sm" style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700, fontSize: "0.7rem" }}
+                                                <button className="btn-sm" style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700, fontSize: "0.7rem" }}
                                                   disabled={loading} onClick={() => onDeclareWinners(t.id, activeDivId!)}>
                                                   🏅 Declare Winners
                                                 </button>
@@ -4841,7 +5168,7 @@ export function App() {
                                         <div style={{ borderTop: "1px solid rgba(244,114,182,.15)", paddingTop: 8 }}>
                                           {rounds.map(rnd => (
                                             <div key={rnd}>
-                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#f472b6" }}>{roundLabel(rnd)}</div>
+                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#d6336c" }}>{roundLabel(rnd)}</div>
                                               {divPlayoffMatches.filter(m => m.roundNumber === rnd).map(m => {
                                                 if (m.team1Ids.length === 0 && m.team2Ids.length === 0) {
                                                   return (
@@ -4896,7 +5223,7 @@ export function App() {
                                         {/* 3rd place match */}
                                         {thirdPlaceMatch && (
                                           <div style={{ marginTop: 12, borderTop: "1px solid rgba(244,114,182,.1)", paddingTop: 10 }}>
-                                            <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#f472b6" }}>🥉 3rd Place Match</div>
+                                            <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#d6336c" }}>🥉 3rd Place Match</div>
                                             {thirdPlaceMatch.team1Ids.length === 0 ? (
                                               <div className="match-row"><div className="match-teams" style={{ color: "var(--muted)", fontStyle: "italic" }}>TBD vs TBD</div></div>
                                             ) : (() => {
@@ -4945,7 +5272,7 @@ export function App() {
                                         {/* Declared winners summary */}
                                         {divWinners.length > 0 && (
                                           <div style={{ marginTop: 12, borderTop: "1px solid rgba(244,114,182,.1)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f472b6", textTransform: "uppercase", letterSpacing: ".06em" }}>Division Results</div>
+                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#d6336c", textTransform: "uppercase", letterSpacing: ".06em" }}>Division Results</div>
                                             {divWinners.map(p => (
                                               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                 <span style={{ fontSize: "1rem" }}>{p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : "🥉"}</span>
@@ -4981,17 +5308,17 @@ export function App() {
                                     return (
                                       <div key={sd.id} className="glass-card" style={{ padding: "12px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#fbbf24" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
+                                          <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#b45309" }}>{TIER_LABELS[sd.tier] ?? sd.tier}</div>
                                           {isOrganizer && (
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                               {sfAllConfirmed && !sdThirdPlaceMatch && (
-                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#b8acff" }}
+                                                <button className="btn-sm" style={{ fontSize: "0.7rem", background: "rgba(124,107,255,.15)", border: "1px solid rgba(124,107,255,.3)", color: "#5b4bd6" }}
                                                   disabled={loading} onClick={() => onCreateSubDivThirdPlaceMatch(t.id, sd.id)}>
                                                   + 3rd Place Match
                                                 </button>
                                               )}
                                               {sdFinalConfirmed && sdWinners.length === 0 && (
-                                                <button className="btn-sm" style={{ background: "rgba(74,222,128,.15)", border: "1px solid rgba(74,222,128,.4)", color: "#4ade80", fontWeight: 700, fontSize: "0.7rem" }}
+                                                <button className="btn-sm" style={{ background: "rgba(22,163,74,.1)", border: "1px solid rgba(74,222,128,.4)", color: "#15803d", fontWeight: 700, fontSize: "0.7rem" }}
                                                   disabled={loading} onClick={() => onDeclareSubDivWinners(t.id, sd.id)}>
                                                   🏅 Declare Winners
                                                 </button>
@@ -5002,7 +5329,7 @@ export function App() {
                                         <div style={{ borderTop: "1px solid rgba(251,191,36,.15)", paddingTop: 8 }}>
                                             {rounds.map(rnd => (
                                               <div key={rnd}>
-                                                <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#fbbf24" }}>{roundLabel(rnd)}</div>
+                                                <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#b45309" }}>{roundLabel(rnd)}</div>
                                                 {sdMatches.filter(m => m.roundNumber === rnd).map(m => {
                                                   if (m.team1Ids.length === 0 && m.team2Ids.length === 0) {
                                                     return (
@@ -5063,7 +5390,7 @@ export function App() {
                                           const canEdit = isOrganizer && m.status === "CONFIRMED";
                                           return (
                                             <div style={{ marginTop: 12, borderTop: "1px solid rgba(251,191,36,.1)", paddingTop: 10 }}>
-                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#fbbf24" }}>🥉 3rd Place Match</div>
+                                              <div className="match-round-label" style={{ fontSize: "0.72rem", color: "#b45309" }}>🥉 3rd Place Match</div>
                                               {m.team1Ids.length === 0 ? (
                                                 <div className="match-row"><div className="match-teams" style={{ color: "var(--muted)", fontStyle: "italic" }}>TBD vs TBD</div></div>
                                               ) : (
@@ -5106,7 +5433,7 @@ export function App() {
                                         {/* Declared winners summary */}
                                         {sdWinners.length > 0 && (
                                           <div style={{ marginTop: 12, borderTop: "1px solid rgba(251,191,36,.1)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#fbbf24", textTransform: "uppercase", letterSpacing: ".06em" }}>Results</div>
+                                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: ".06em" }}>Results</div>
                                             {sdWinners.map(p => (
                                               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                 <span style={{ fontSize: "1rem" }}>{p.position === 1 ? "🥇" : p.position === 2 ? "🥈" : "🥉"}</span>
@@ -5153,7 +5480,7 @@ export function App() {
                                                 <div style={{ flex: 1, minWidth: 120 }}>
                                                   <div className="entity-name">
                                                     {reg.teamName ? (
-                                                      <span style={{ fontWeight: 700, color: "#b8acff" }}>{reg.teamName}</span>
+                                                      <span style={{ fontWeight: 700, color: "#5b4bd6" }}>{reg.teamName}</span>
                                                     ) : (
                                                       reg.partnerName ? `${reg.playerName} & ${reg.partnerName}` : reg.playerName
                                                     )}
@@ -5189,7 +5516,7 @@ export function App() {
                                                   {reg.status === "CONFIRMED" ? "Confirmed" : "Pending"}
                                                 </span>
                                                 {(reg.playerDuprRating !== undefined || reg.partnerDuprRating !== undefined) && (
-                                                  <span className="badge badge-rr" style={{ marginTop: 2, fontSize: "0.65rem", background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.35)", color: "#f472b6" }}>
+                                                  <span className="badge badge-rr" style={{ marginTop: 2, fontSize: "0.65rem", background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.35)", color: "#d6336c" }}>
                                                     ★ {reg.playerDuprRating ?? "—"}{reg.partnerDuprRating !== undefined ? ` / ${reg.partnerDuprRating}` : ""}
                                                   </span>
                                                 )}
@@ -5210,7 +5537,7 @@ export function App() {
                                                           }
                                                         }}>✎ Edit Team</button>
                                                     )}
-                                                    <button style={{ marginLeft: 4, padding: "2px 7px", fontSize: "0.72rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, color: "#f87171", cursor: "pointer", marginTop: 2 }}
+                                                    <button style={{ marginLeft: 4, padding: "2px 7px", fontSize: "0.72rem", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, color: "#dc2626", cursor: "pointer", marginTop: 2 }}
                                                       disabled={loading} title="Withdraw this registration"
                                                       onClick={() => onOrgWithdrawRegistration(t.id, reg.id)}>✕</button>
                                                   </>
@@ -5257,7 +5584,7 @@ export function App() {
                                                         <label style={{ fontSize: "0.73rem", color: "var(--muted)" }}>Partner (currently: {reg.partnerName ?? "None"})</label>
                                                         {memberRemovePartner ? (
                                                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                                            <span style={{ fontSize: "0.78rem", color: "#f87171" }}>Partner will be removed</span>
+                                                            <span style={{ fontSize: "0.78rem", color: "#dc2626" }}>Partner will be removed</span>
                                                             <button style={{ fontSize: "0.68rem", background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}
                                                               onClick={() => setMemberRemovePartner(false)}>Undo</button>
                                                           </div>
@@ -5289,7 +5616,7 @@ export function App() {
                                                               </div>
                                                             )}
                                                             {reg.partnerName && (
-                                                              <button style={{ fontSize: "0.68rem", color: "#f87171", background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginTop: 2 }}
+                                                              <button style={{ fontSize: "0.68rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginTop: 2 }}
                                                                 onClick={() => { setMemberRemovePartner(true); setMemberPartnerQuery(""); setMemberPartnerResults([]); }}>
                                                                 Remove partner
                                                               </button>
@@ -5371,7 +5698,7 @@ export function App() {
                                     const rows = computeStandings(groupMatches, groupRegs);
                                     return (
                                       <div key={group.id} style={{ marginBottom: 20 }}>
-                                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#b8acff", marginBottom: 8 }}>{group.name}</div>
+                                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#5b4bd6", marginBottom: 8 }}>{group.name}</div>
                                         {rows.length === 0
                                           ? <p className="empty-state" style={{ fontSize: "0.8rem" }}>No results yet.</p>
                                           : (
@@ -5382,7 +5709,7 @@ export function App() {
                                                   <tr key={i}>
                                                     <td className={`rank-cell rank-${i + 1}`}>{i + 1}</td>
                                                     <td className="entity-name">{row.names}</td>
-                                                    <td style={{ color: "#f472b6", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
+                                                    <td style={{ color: "#d6336c", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
                                                     <td>{row.wins}</td>
                                                     <td>{row.losses}</td>
                                                     <td style={{ fontWeight: 700, color: "var(--pink)" }}>{row.wins * 2}</td>
@@ -5406,7 +5733,7 @@ export function App() {
                                             <tr key={i}>
                                               <td className={`rank-cell rank-${i + 1}`}>{i + 1}</td>
                                               <td className="entity-name">{row.names}</td>
-                                              <td style={{ color: "#f472b6", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
+                                              <td style={{ color: "#d6336c", fontWeight: 600, fontSize: "0.78rem" }}>{row.duprRating ?? "—"}</td>
                                               <td>{row.wins}</td>
                                               <td>{row.losses}</td>
                                               <td style={{ fontWeight: 700, color: "var(--pink)" }}>{row.wins * 2}</td>
@@ -5461,7 +5788,7 @@ export function App() {
 
                           return (
                             <div key={ev.id} className="glass-card" style={{ padding: "14px 16px" }}>
-                              <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#b8acff", marginBottom: 12 }}>
+                              <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "#5b4bd6", marginBottom: 12 }}>
                                 {etLabel(ev.eventType)} · {ev.skillLevel} · {abLabel(ev.ageBracket)}
                               </div>
                               {/* Playoff winners */}
@@ -5473,7 +5800,7 @@ export function App() {
                               {/* Sub-division winners, one section per sub-division */}
                               {sdPlacements.map(({ sd, placements: sdp }) => (
                                 <div key={sd.id} style={{ marginBottom: 10 }}>
-                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#fbbf24", marginBottom: 6 }}>{TIER_LABELS_W[sd.tier] ?? sd.tier}</div>
+                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#b45309", marginBottom: 6 }}>{TIER_LABELS_W[sd.tier] ?? sd.tier}</div>
                                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                     {sdp.map(placementRow)}
                                   </div>
@@ -5485,6 +5812,31 @@ export function App() {
                         {t.events.length > 0 && t.placements.filter(p => p.eventId).length === 0 && (
                           <div className="glass-card"><p className="empty-state">No winners declared yet. Complete the playoff brackets and use "Declare Winners" in Division Controls.</p></div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Coordinators footer — shown on every tournament tab */}
+                    {(t.coordinators ?? []).length > 0 && (
+                      <div className="glass-card" style={{ marginTop: 16 }}>
+                        <div className="entity-sub" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.7rem" }}>Tournament coordinators</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+                          {(t.coordinators ?? []).map((c, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <Avatar name={c.name} size={28} />
+                              <div>
+                                <div className="entity-name" style={{ fontSize: "0.85rem" }}>{c.name}{c.role ? ` · ${c.role}` : ""}</div>
+                                {c.contact && <div className="entity-sub">{c.contact}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment proof viewer (organizer) */}
+                    {proofViewer && (
+                      <div style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,0.55)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }} onClick={() => setProofViewer(null)}>
+                        <img src={proofViewer} alt="Payment proof" style={{ maxWidth: "90vw", maxHeight: "85vh", borderRadius: 12 }} onClick={e => e.stopPropagation()} />
                       </div>
                     )}
                   </>
@@ -5670,6 +6022,44 @@ export function App() {
                           <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400 }}>(requires DUPR ID + rating on registration)</span>
                         </label>
                       </div>
+                      <div className="field-row">
+                        <div className="field">
+                          <label>Registration Contact</label>
+                          <input placeholder="e.g. WhatsApp +1 555… (registration team)" value={tourneyInput.registrationContact} onChange={e => setTourneyInput({ ...tourneyInput, registrationContact: e.target.value })} />
+                        </div>
+                        <div className="field">
+                          <label>Tournament Contact</label>
+                          <input placeholder="e.g. tournamentdesk@…, +1 555…" value={tourneyInput.tournamentContact} onChange={e => setTourneyInput({ ...tourneyInput, tournamentContact: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label>Coordinators</label>
+                        {tourneyCoordinators.map((c, i) => (
+                          <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                            <input placeholder="Name" value={c.name} style={{ flex: 2 }}
+                              onChange={e => setTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                            <input placeholder="Role (optional)" value={c.role ?? ""} style={{ flex: 2 }}
+                              onChange={e => setTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} />
+                            <input placeholder="Contact" value={c.contact ?? ""} style={{ flex: 2 }}
+                              onChange={e => setTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, contact: e.target.value } : x))} />
+                            <button type="button" className="btn-ghost" onClick={() => setTourneyCoordinators(prev => prev.filter((_, j) => j !== i))}>✕</button>
+                          </div>
+                        ))}
+                        <button type="button" className="btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setTourneyCoordinators(prev => [...prev, { name: "", role: "", contact: "" }])}>+ Add coordinator</button>
+                      </div>
+                      <div className="field">
+                        <label>Tournament Banner (optional image)</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {tourneyBanner && <img src={tourneyBanner} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />}
+                          <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+                            onChange={async e => {
+                              const f = e.target.files?.[0];
+                              if (!f) { setTourneyBanner(null); return; }
+                              try { setTourneyBanner(await fileToDataUrl(f, 1_500_000)); } catch (err) { setError((err as Error).message); }
+                            }} />
+                          {tourneyBanner && <button type="button" className="btn-ghost" onClick={() => setTourneyBanner(null)}>Remove</button>}
+                        </div>
+                      </div>
                       <button type="submit" className="btn-primary" disabled={loading}>Create Tournament</button>
                     </form>
                   </div>
@@ -5847,7 +6237,7 @@ export function App() {
                               <div className="invite-section-divider"><span>Court Assignments & Scores</span></div>
                               {courts.map(court => (
                                 <div key={court} style={{ marginBottom: 16 }}>
-                                  <div style={{ fontWeight: 700, color: "#b8acff", marginBottom: 8 }}>Court {court}</div>
+                                  <div style={{ fontWeight: 700, color: "#5b4bd6", marginBottom: 8 }}>Court {court}</div>
                                   <ul className="entity-list">
                                     {weekResults.filter(r => r.court === court).map(r => (
                                       <li key={r.id}>
@@ -6025,7 +6415,7 @@ export function App() {
 
       {/* Bottom navigation — visible on mobile/tablet only */}
       <nav className="bottom-nav" role="tablist">
-        {TABS.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             role="tab"
