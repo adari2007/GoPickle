@@ -282,6 +282,8 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
   const [editTourneyBanner, setEditTourneyBanner] = useState<string | null | undefined>(undefined); // undefined = unchanged, null = remove
   const [editTourneyComms, setEditTourneyComms] = useState({ registrationContact: "", tournamentContact: "" });
   const [editTourneyCoordinators, setEditTourneyCoordinators] = useState<Coordinator[]>([]);
+  const [showAddDivision, setShowAddDivision] = useState(false);
+  const [addDivInput, setAddDivInput] = useState({ eventType: "MEN_DOUBLES", skillLevel: "OPEN", ageBracket: "OPEN" as "OPEN" | "YOUNG" | "SENIOR" });
   // Organizer player registration
   const [orgRegQuery, setOrgRegQuery] = useState("");
   const [orgRegResults, setOrgRegResults] = useState<User[]>([]);
@@ -1538,6 +1540,29 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
       });
       setEditTourneyBanner(undefined);
       setShowEditTourney(false);
+      await selectTournament(tournamentId);
+    });
+  }
+
+  async function onAddDivision(tournamentId: string) {
+    if (!user) return;
+    await withError(async () => {
+      await api.addTournamentEvent(tournamentId, {
+        organizerId: user.id,
+        eventType: addDivInput.eventType,
+        skillLevel: addDivInput.skillLevel,
+        ageBracket: addDivInput.ageBracket
+      });
+      setShowAddDivision(false);
+      await selectTournament(tournamentId);
+    });
+  }
+
+  async function onRemoveDivision(tournamentId: string, eventId: string) {
+    if (!user) return;
+    await withError(async () => {
+      await api.removeTournamentEvent(tournamentId, eventId, user.id);
+      if (selectedEventId === eventId) setSelectedEventId(null);
       await selectTournament(tournamentId);
     });
   }
@@ -4573,6 +4598,51 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
 
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          {/* Organizer: add / remove divisions after creation */}
+                          {isOrganizer && (
+                            <div className="glass-card" style={{ padding: "10px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Divisions</div>
+                                <button className="btn-sm" onClick={() => setShowAddDivision(v => !v)}>
+                                  {showAddDivision ? "✕ Cancel" : "+ Add division"}
+                                </button>
+                              </div>
+                              {showAddDivision && (
+                                <div className="field-row" style={{ marginTop: 10, alignItems: "flex-end" }}>
+                                  <div className="field">
+                                    <label>Event</label>
+                                    <select value={addDivInput.eventType} onChange={e => setAddDivInput(p => ({ ...p, eventType: e.target.value }))}>
+                                      {EVENT_TYPES.map(et => <option key={et.value} value={et.value}>{et.label}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="field">
+                                    <label>Skill Level</label>
+                                    <select value={addDivInput.skillLevel} onChange={e => setAddDivInput(p => ({ ...p, skillLevel: e.target.value }))}>
+                                      {SKILL_LEVELS.map(sl => <option key={sl} value={sl}>{sl}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="field">
+                                    <label>Age Group</label>
+                                    <select value={addDivInput.ageBracket} onChange={e => setAddDivInput(p => ({ ...p, ageBracket: e.target.value as "OPEN" | "YOUNG" | "SENIOR" }))}>
+                                      <option value="OPEN">Open Age</option>
+                                      <option value="YOUNG">Young (u35)</option>
+                                      <option value="SENIOR">Senior (50+)</option>
+                                    </select>
+                                  </div>
+                                  <button className="btn-primary" style={{ width: "auto", padding: "0.5rem 1rem" }} disabled={loading}
+                                    onClick={() => onAddDivision(t.id)}>Add</button>
+                                </div>
+                              )}
+                              {isOrganizer && activeDivision && divRegs.length === 0 && divMatches.length === 0 && (
+                                <div style={{ marginTop: 8 }}>
+                                  <button className="btn-ghost" style={{ color: "#f87171", fontSize: "0.75rem" }}
+                                    onClick={() => onRemoveDivision(t.id, activeDivision.id)}>
+                                    Remove selected division ({etLabel(activeDivision.eventType)} · {activeDivision.skillLevel}) — it has no registrations
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {/* Division selector — grouped by category */}
                           {t.events.length > 0 && (
                             <div className="glass-card" style={{ padding: "10px 14px" }}>

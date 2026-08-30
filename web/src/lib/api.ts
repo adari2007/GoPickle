@@ -643,6 +643,12 @@ export const api = {
   getPaymentProof: (tournamentId: string, regId: string, organizerId: string) =>
     request<{ proof: string }>(`/tournaments/${tournamentId}/registrations/${regId}/payment-proof?organizerId=${encodeURIComponent(organizerId)}`),
 
+  addTournamentEvent: (tournamentId: string, payload: { organizerId: string; eventType: string; skillLevel?: string; ageBracket?: "OPEN" | "YOUNG" | "SENIOR" }) =>
+    request<{ event: TournamentEvent }>(`/tournaments/${tournamentId}/events`, { method: "POST", body: JSON.stringify(payload) }),
+
+  removeTournamentEvent: (tournamentId: string, eventId: string, organizerId: string) =>
+    request<{ message: string }>(`/tournaments/${tournamentId}/events/${eventId}`, { method: "DELETE", body: JSON.stringify({ organizerId }) }),
+
   reviewPayment: (tournamentId: string, regId: string, payload: { organizerId: string; action: "APPROVE" | "REJECT" }) =>
     request<{ registrationId: string; paymentStatus: string }>(`/tournaments/${tournamentId}/registrations/${regId}/payment-review`, { method: "POST", body: JSON.stringify(payload) })
 };
