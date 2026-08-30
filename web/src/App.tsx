@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { api, LeagueSummary, LeagueWeek, LeagueWeekResult, TournamentEvent, TournamentGroup, TournamentSubDivision, QpSession, QpMatch, QpStanding, QpPlacement } from "./lib/api";
+import { api, setAuthToken, LeagueSummary, LeagueWeek, LeagueWeekResult, TournamentEvent, TournamentGroup, TournamentSubDivision, QpSession, QpMatch, QpStanding, QpPlacement } from "./lib/api";
+import { OrgBranding, clearSession, fileToDataUrl, saveSession } from "./lib/org";
+import { AdminPanel } from "./AdminPanel";
 import logo from "./assets/logo-pickle.svg";
 import buddyIcon from "./assets/icon-buddy.svg";
 import clubIcon from "./assets/icon-club.svg";
@@ -8,7 +10,7 @@ import trophyIcon from "./assets/icon-trophy.svg";
 import quickplayIcon from "./assets/icon-quickplay.svg";
 import leagueIcon from "./assets/icon-league.svg";
 
-type User       = { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number };
+type User       = { id: string; name: string; email?: string; phone?: string; duprId?: string; duprRating?: number; duprRatingSingles?: number; duprRatingDoubles?: number; duprRatingMixed?: number; role?: string };
 type Club       = { id: string; name: string; description?: string; createdBy: string; memberIds: string[]; privacy: "PUBLIC" | "PRIVATE"; allowDirectJoin: boolean; location?: string; joinCode?: string };
 type ClubMember = User & { duprRating?: number };
 type ClubDetail = Club & { members: ClubMember[]; pendingInviteUserIds: string[] };
@@ -17,11 +19,12 @@ type ClubSession = { id: string; clubId: string; name: string; sessionType: stri
 type ClubJoinRequest = { id: string; clubId: string; userId: string; userName: string; status: string; createdAt: string };
 type ClubAnalytics = { memberCount: number; sessionCount: number; approvedSessionCount: number; gameCount: number; avgDuprRating: number | null; topPlayers: ClubMember[] };
 type Game        = { id: string; type: string; format: string; score: string; participantIds: string[] };
-type Tournament  = { id: string; name: string; eventType: string; format: string; skillLevel?: string; location?: string; startDate?: string; participantIds: string[]; status: string; isDuprReported?: boolean };
-type TournamentRegistration = { id: string; tournamentId: string; playerId: string; playerName: string; playerEmail?: string; playerPhone?: string; partnerId?: string; partnerName?: string; teamName?: string; playerDuprRating?: number; partnerDuprId?: string; partnerDuprRating?: number; status: string; tournamentEventId?: string };
+type Coordinator = { name: string; contact?: string; role?: string };
+type Tournament  = { id: string; name: string; eventType: string; format: string; skillLevel?: string; location?: string; startDate?: string; participantIds: string[]; status: string; isDuprReported?: boolean; registrationContact?: string; tournamentContact?: string; coordinators?: Coordinator[]; hasBanner?: boolean };
+type TournamentRegistration = { id: string; tournamentId: string; playerId: string; playerName: string; playerEmail?: string; playerPhone?: string; partnerId?: string; partnerName?: string; teamName?: string; playerDuprRating?: number; partnerDuprId?: string; partnerDuprRating?: number; status: string; tournamentEventId?: string; paymentStatus?: string; hasPaymentProof?: boolean };
 type TournamentMatch = { id: string; roundNumber: number; matchNumber: number; bracket: string; court?: string; scheduledAt?: string; team1Ids: string[]; team2Ids: string[]; scoreTeam1?: number; scoreTeam2?: number; winnerIds?: string[]; status: string; reportedBy?: string; tournamentEventId?: string; groupId?: string; subDivisionId?: string };
 type TournamentPlacement = { id: string; position: number; playerIds: string[]; label?: string; note?: string; eventId?: string; subDivisionId?: string };
-type TournamentDetail = Tournament & { createdBy: string; clubId?: string; ageBracket: string; maxTeams?: number; description?: string; roundRobinType: string; endDate?: string; registrationStartDate?: string; registrationEndDate?: string; withdrawDeadline?: string; registrationClosed?: boolean; cancelledReason?: string; cancelledAt?: string; registrations: TournamentRegistration[]; matches: TournamentMatch[]; placements: TournamentPlacement[]; events: TournamentEvent[]; groups: TournamentGroup[]; subDivisions: TournamentSubDivision[] };
+type TournamentDetail = Tournament & { createdBy: string; clubId?: string; ageBracket: string; maxTeams?: number; description?: string; roundRobinType: string; endDate?: string; registrationStartDate?: string; registrationEndDate?: string; withdrawDeadline?: string; registrationClosed?: boolean; cancelledReason?: string; cancelledAt?: string; bannerData?: string; registrations: TournamentRegistration[]; matches: TournamentMatch[]; placements: TournamentPlacement[]; events: TournamentEvent[]; groups: TournamentGroup[]; subDivisions: TournamentSubDivision[] };
 
 const EVENT_TYPES = [
   { value: "MEN_SINGLES",    label: "Men's Singles",    isDoubles: false },
@@ -82,6 +85,15 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: "leagues",     label: "Leagues",     emoji: "📅" },
 ];
 
+// Which org feature flag gates each tab ("home" is always available).
+const TAB_FEATURE: Partial<Record<Tab, keyof OrgBranding["features"]>> = {
+  buddies: "buddies",
+  clubs: "clubs",
+  "quick-play": "quickPlay",
+  tournaments: "tournaments",
+  leagues: "leagues",
+};
+
 function teamKey(ids: string[]) { return [...ids].sort().join("+"); }
 
 function computeStandings(matches: TournamentMatch[], registrations: TournamentRegistration[]) {
@@ -132,8 +144,15 @@ function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   );
 }
 
-export function App() {
-  const [user, setUser] = useState<User | null>(null);
+export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initialUser: User | null }) {
+  const [org, setOrg] = useState<OrgBranding>(initialOrg);
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const visibleTabs = TABS.filter(t => {
+    const f = TAB_FEATURE[t.id];
+    return !f || org.features[f] !== false;
+  });
+
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [contact, setContact] = useState({ email: "", phone: "", name: "", password: "" });
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -195,7 +214,11 @@ export function App() {
   const qpPlayerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // eventDivisions: Record<eventType, Record<skillLevel, ageBracket[]>>
   const [eventDivisions, setEventDivisions] = useState<Record<string, Record<string, string[]>>>({});
-  const [tourneyInput, setTourneyInput] = useState({ name: "", format: "ROUND_ROBIN", roundRobinType: "FIXED", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false });
+  const [tourneyInput, setTourneyInput] = useState({ name: "", format: "ROUND_ROBIN", roundRobinType: "FIXED", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false, registrationContact: "", tournamentContact: "" });
+  const [tourneyCoordinators, setTourneyCoordinators] = useState<Coordinator[]>([]);
+  const [tourneyBanner, setTourneyBanner] = useState<string | null>(null);
+  const [regPaymentProof, setRegPaymentProof] = useState<string | null>(null);
+  const [proofViewer, setProofViewer] = useState<string | null>(null);
   const [selectedTournament, setSelectedTournament] = useState<TournamentDetail | null>(null);
   const [tourneyDetailTab, setTourneyDetailTab] = useState<"overview" | "players" | "divisions" | "winners">("overview");
   const [showOrgRegPanel, setShowOrgRegPanel] = useState(false);
@@ -314,11 +337,53 @@ export function App() {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [buddyQuery]);
 
+  // A restored session skips onLogin, so load data on mount.
+  useEffect(() => {
+    if (initialUser) refreshAll(initialUser.id).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Org-configured default landing: jump to the active (or a specific)
+  // tournament once after sign-in, when tournaments have loaded.
+  const didDefaultNav = useRef(false);
+  useEffect(() => {
+    if (didDefaultNav.current || !user || tournaments.length === 0) return;
+    const mode = org.settings?.defaultTournamentMode ?? "none";
+    if (mode === "none" || org.features.tournaments === false) { didDefaultNav.current = true; return; }
+    let target: string | undefined;
+    if (mode === "specific") {
+      target = org.settings?.defaultTournamentId ?? undefined;
+      if (target && !tournaments.some(t => t.id === target)) target = undefined;
+    } else {
+      const active = tournaments.filter(t => t.status !== "COMPLETED" && t.status !== "CANCELLED");
+      target = (active.find(t => t.status === "IN_PROGRESS") ?? active[active.length - 1])?.id;
+    }
+    didDefaultNav.current = true;
+    if (target) {
+      setActiveTab("tournaments");
+      selectTournament(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, tournaments]);
+
+  // Never leave the user on a tab the org has disabled.
+  useEffect(() => {
+    if (!visibleTabs.some(t => t.id === activeTab)) setActiveTab("home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, org.features]);
+
   async function refreshAll(uid: string) {
+    // Disabled features are 403 on the API — skip their calls entirely.
+    const f = org.features;
     const [c, g, t, b, inv, pi, lg, qp] = await Promise.all([
-      api.listClubs(), api.listGames(), api.listTournaments(), api.listBuddies(uid),
-      api.listClubInvites(uid), api.listTournamentPartnerInvites(uid), api.listLeagues(),
-      api.listQpSessions()
+      f.clubs !== false ? api.listClubs() : Promise.resolve({ clubs: [] }),
+      f.games !== false ? api.listGames() : Promise.resolve({ games: [] }),
+      f.tournaments !== false ? api.listTournaments() : Promise.resolve({ tournaments: [] }),
+      f.buddies !== false ? api.listBuddies(uid) : Promise.resolve({ buddies: [] }),
+      f.clubs !== false ? api.listClubInvites(uid) : Promise.resolve({ invites: [] }),
+      f.tournaments !== false ? api.listTournamentPartnerInvites(uid) : Promise.resolve({ invites: [] }),
+      f.leagues !== false ? api.listLeagues() : Promise.resolve({ leagues: [] }),
+      f.quickPlay !== false ? api.listQpSessions() : Promise.resolve({ sessions: [] })
     ]);
     setClubs(c.clubs);
     setGames(g.games);
@@ -551,6 +616,12 @@ export function App() {
     setContact({ ...contact, email: isPhone ? "" : val, phone: isPhone ? val : "" });
   }
 
+  function signOut() {
+    clearSession(org.slug);
+    setAuthToken(null);
+    setUser(null);
+  }
+
   async function onLogin(e: FormEvent) {
     e.preventDefault();
     await withError(async () => {
@@ -559,6 +630,8 @@ export function App() {
         phone: contact.phone || undefined,
         password: contact.password,
       });
+      setAuthToken(r.token);
+      saveSession(org.slug, { token: r.token, user: r.user });
       setUser(r.user);
       await refreshAll(r.user.id);
     });
@@ -574,6 +647,8 @@ export function App() {
         phone: contact.phone || undefined,
         password: contact.password,
       });
+      setAuthToken(r.token);
+      saveSession(org.slug, { token: r.token, user: r.user });
       setUser(r.user);
       await refreshAll(r.user.id);
     });
@@ -1173,10 +1248,40 @@ export function App() {
         clubId: tourneyInput.clubId || undefined,
         roundRobinType: tourneyInput.roundRobinType,
         isDuprReported: tourneyInput.isDuprReported,
+        registrationContact: tourneyInput.registrationContact || undefined,
+        tournamentContact: tourneyInput.tournamentContact || undefined,
+        coordinators: tourneyCoordinators.filter(c => c.name.trim()).length > 0 ? tourneyCoordinators.filter(c => c.name.trim()) : undefined,
+        bannerData: tourneyBanner ?? undefined,
       });
-      setTourneyInput(p => ({ ...p, name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false }));
+      setTourneyInput(p => ({ ...p, name: "", location: "", startDate: "", endDate: "", registrationStartDate: "", registrationEndDate: "", withdrawDeadline: "", maxTeams: "", description: "", clubId: "", isDuprReported: false, registrationContact: "", tournamentContact: "" }));
+      setTourneyCoordinators([]);
+      setTourneyBanner(null);
       setEventDivisions({});
       await refreshAll(user.id);
+    });
+  }
+
+  async function onRegProofFile(file: File | undefined) {
+    if (!file) { setRegPaymentProof(null); return; }
+    try {
+      setRegPaymentProof(await fileToDataUrl(file, 6_000_000));
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function onViewPaymentProof(tournamentId: string, regId: string) {
+    if (!user) return;
+    await withError(async () => {
+      const r = await api.getPaymentProof(tournamentId, regId, user.id);
+      setProofViewer(r.proof);
+    });
+  }
+
+  async function onReviewPayment(tournamentId: string, regId: string, action: "APPROVE" | "REJECT") {
+    if (!user) return;
+    await withError(async () => {
+      await api.reviewPayment(tournamentId, regId, { organizerId: user.id, action });
+      setProofViewer(null);
+      await selectTournament(tournamentId);
     });
   }
 
@@ -1202,9 +1307,11 @@ export function App() {
             duprRating: ratingStr ? parseFloat(ratingStr) : undefined,
             partnerDuprId: divPartnerDuprIds[evId]?.trim() || undefined,
             partnerDuprRating: partnerRatingStr ? parseFloat(partnerRatingStr) : undefined,
-            teamName: divTeamNames[evId]?.trim() || undefined
+            teamName: divTeamNames[evId]?.trim() || undefined,
+            paymentProof: evId === selectedEventIds[0] ? regPaymentProof ?? undefined : undefined
           });
         }
+        setRegPaymentProof(null);
         setSelectedEventIds([]); setDivPartners({}); setDivTeamNames({}); setPartnerAssignEventId(null); setPartnerQuery(""); setPartnerResults([]);
         setDivDuprRatings({}); setDivPartnerDuprIds({}); setDivPartnerDuprRatings({});
       } else {
@@ -1219,8 +1326,10 @@ export function App() {
           duprRating: ratingStr ? parseFloat(ratingStr) : undefined,
           partnerDuprId: regPartnerDuprId.trim() || undefined,
           partnerDuprRating: partnerRatingStr ? parseFloat(partnerRatingStr) : undefined,
-          teamName: regTeamName.trim() || undefined
+          teamName: regTeamName.trim() || undefined,
+          paymentProof: regPaymentProof ?? undefined
         });
+        setRegPaymentProof(null);
         setSelectedPartner(null); setPartnerQuery(""); setPartnerResults([]);
         setRegDuprRating(""); setRegPartnerDuprId(""); setRegPartnerDuprRating("");
       }
@@ -1561,8 +1670,8 @@ export function App() {
       <div className="auth-root">
         <div className="auth-brand">
           <div className="auth-brand-inner">
-            <img src={logo} alt="GoPickle" className="auth-brand-logo" />
-            <h1 className="auth-brand-name">GoPickle</h1>
+            <img src={org.logoUrl ?? logo} alt={org.name} className="auth-brand-logo" />
+            <h1 className="auth-brand-name">{org.name}</h1>
             <p className="auth-brand-tagline">
               The modern social platform for pickleball — track clubs, buddies, matches, and tournaments.
             </p>
@@ -1578,12 +1687,12 @@ export function App() {
         <div className="auth-panel">
           <div className="auth-card">
             <div className="auth-card-logo-mobile">
-              <img src={logo} alt="" />
-              <span>GoPickle</span>
+              <img src={org.logoUrl ?? logo} alt="" />
+              <span>{org.name}</span>
             </div>
 
             <h2 className="auth-title">
-              {authMode === "login" ? "Welcome back" : "Join GoPickle"}
+              {authMode === "login" ? "Welcome back" : `Join ${org.name}`}
             </h2>
             <p className="auth-subtitle">
               {authMode === "login" ? "Sign in to your account" : "Create your free account"}
@@ -1626,7 +1735,7 @@ export function App() {
             </form>
 
             <p className="auth-switch">
-              {authMode === "login" ? "New to GoPickle?" : "Already have an account?"}{" "}
+              {authMode === "login" ? `New to ${org.name}?` : "Already have an account?"}{" "}
               <button
                 type="button"
                 className="link-btn"
@@ -1644,14 +1753,19 @@ export function App() {
   // ── DASHBOARD ────────────────────────────────────────────────────────────────
   return (
     <div className="dash-root">
+      {showAdminPanel && (
+        <AdminPanel org={org} currentUserId={user.id}
+          tournaments={tournaments.map(t => ({ id: t.id, name: t.name, status: t.status }))}
+          onOrgUpdated={setOrg} onClose={() => setShowAdminPanel(false)} />
+      )}
       <nav className="topbar">
         <div className="topbar-brand">
-          <img src={logo} alt="GoPickle" className="topbar-logo" />
-          <span className="topbar-name">GoPickle</span>
+          <img src={org.logoUrl ?? logo} alt={org.name} className="topbar-logo" />
+          <span className="topbar-name">{org.name}</span>
         </div>
 
         <div className="tab-bar" role="tablist">
-          {TABS.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.id}
               role="tab"
@@ -1666,11 +1780,11 @@ export function App() {
         </div>
 
         <div className="topbar-user">
-          <button className="avatar-btn" onClick={() => setShowProfileMenu(v => !v)} aria-label="Profile menu">
+          <button className="avatar-btn" onClick={e => { e.stopPropagation(); setShowProfileMenu(v => !v); }} aria-label="Profile menu">
             <Avatar name={user.name} />
           </button>
           <span className="topbar-username">{user.name.split(" ")[0]}</span>
-          <button className="btn-ghost" onClick={() => setUser(null)}>Sign out</button>
+          <button className="btn-ghost" onClick={signOut}>Sign out</button>
           {showProfileMenu && (
             <div className="profile-dropdown" onClick={e => e.stopPropagation()}>
               <div>
@@ -1682,9 +1796,15 @@ export function App() {
                   DUPR Rating: <span style={{ color: "var(--text)", fontWeight: 700 }}>{user.duprRating}</span>
                 </div>
               )}
+              {user.role === "ADMIN" && (
+                <button className="btn-ghost" style={{ width: "100%", textAlign: "left" }}
+                  onClick={() => { setShowAdminPanel(true); setShowProfileMenu(false); }}>
+                  ⚙️ Organization settings
+                </button>
+              )}
               <hr className="profile-dropdown-divider" />
               <button className="btn-ghost" style={{ width: "100%", textAlign: "left" }}
-                onClick={() => { setUser(null); setShowProfileMenu(false); }}>
+                onClick={() => { signOut(); setShowProfileMenu(false); }}>
                 Sign out
               </button>
             </div>
@@ -1708,13 +1828,13 @@ export function App() {
             </div>
             <div className="stats-grid">
               {[
-                { label: "Buddies",     value: buddies.length,     icon: buddyIcon,  cls: "buddies-icon" },
-                { label: "Clubs",       value: clubs.length,       icon: clubIcon,   cls: "clubs-icon"   },
-                { label: "Games",       value: games.filter(g => g.participantIds.includes(user.id)).length, icon: gameIcon,      cls: "games-icon"      },
-                { label: "Quick Play",  value: qpSessions.filter(s => s.createdBy === user.id || s.playerIds.includes(user.id)).length, icon: quickplayIcon, cls: "quickplay-icon"  },
-                { label: "Tournaments", value: tournaments.length, icon: trophyIcon,    cls: "trophy-icon"     },
-                { label: "Leagues",     value: leagues.length,     icon: leagueIcon,    cls: "league-icon"     },
-              ].map(s => (
+                { label: "Buddies",     feature: org.features.buddies,     value: buddies.length,     icon: buddyIcon,  cls: "buddies-icon" },
+                { label: "Clubs",       feature: org.features.clubs,       value: clubs.length,       icon: clubIcon,   cls: "clubs-icon"   },
+                { label: "Games",       feature: org.features.games,       value: games.filter(g => g.participantIds.includes(user.id)).length, icon: gameIcon,      cls: "games-icon"      },
+                { label: "Quick Play",  feature: org.features.quickPlay,   value: qpSessions.filter(s => s.createdBy === user.id || s.playerIds.includes(user.id)).length, icon: quickplayIcon, cls: "quickplay-icon"  },
+                { label: "Tournaments", feature: org.features.tournaments, value: tournaments.length, icon: trophyIcon,    cls: "trophy-icon"     },
+                { label: "Leagues",     feature: org.features.leagues,     value: leagues.length,     icon: leagueIcon,    cls: "league-icon"     },
+              ].filter(s => s.feature !== false).map(s => (
                 <div key={s.label} className="stat-card">
                   <div className={`stat-icon ${s.cls}`}>
                     <img src={s.icon} alt="" />
@@ -3001,6 +3121,10 @@ export function App() {
                   <>
                     <button className="btn-back" onClick={() => setSelectedTournament(null)}>← All Tournaments</button>
 
+                    {t.bannerData && (
+                      <img src={t.bannerData} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 14, marginBottom: 14, border: "1px solid var(--border)" }} />
+                    )}
+
                     <div className="glass-card tourney-header">
                       <div className="tourney-header-top">
                         <div>
@@ -3596,6 +3720,25 @@ export function App() {
                     {/* Overview tab */}
                     {tourneyDetailTab === "overview" && (
                       <div className="content-grid">
+                        {(t.registrationContact || t.tournamentContact) && (
+                          <div className="glass-card" style={{ gridColumn: "1 / -1" }}>
+                            <h3 className="card-title">Contact &amp; Communication</h3>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "1.2rem" }}>
+                              {t.registrationContact && (
+                                <div style={{ minWidth: 220 }}>
+                                  <div className="entity-sub" style={{ marginBottom: 2 }}>Registration team</div>
+                                  <div className="entity-name" style={{ whiteSpace: "pre-wrap" }}>{t.registrationContact}</div>
+                                </div>
+                              )}
+                              {t.tournamentContact && (
+                                <div style={{ minWidth: 220 }}>
+                                  <div className="entity-sub" style={{ marginBottom: 2 }}>Tournament desk</div>
+                                  <div className="entity-name" style={{ whiteSpace: "pre-wrap" }}>{t.tournamentContact}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <div className="glass-card">
                           <h3 className="card-title">Tournament Info</h3>
                           <div className="stack-form">
@@ -4010,6 +4153,20 @@ export function App() {
                                     );
                                   })()}
                                 </div>
+                                {selectedEvObjs.length > 0 && (
+                                  <div className="field" style={{ marginTop: 6 }}>
+                                    <label>Payment proof (optional JPG/photo)</label>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      {regPaymentProof && <img src={regPaymentProof} alt="" style={{ height: 36, borderRadius: 6 }} />}
+                                      <input type="file" accept="image/*" style={{ fontSize: "0.78rem", color: "var(--muted)" }}
+                                        onChange={e => onRegProofFile(e.target.files?.[0])} />
+                                    </div>
+                                    <p className="entity-sub" style={{ marginTop: 4 }}>
+                                      Uploading is optional — if you skip it, share your payment confirmation with the registration team
+                                      {t.registrationContact ? ` (${t.registrationContact})` : " via WhatsApp or the contact listed above"} to get confirmed.
+                                    </p>
+                                  </div>
+                                )}
                                 {selectedEvObjs.length > 0 ? (
                                   <button className="btn-primary" disabled={loading} onClick={() => onRegisterForTournament(t.id)} style={{ marginTop: 4 }}>
                                     Register for {selectedEvObjs.length} division{selectedEvObjs.length !== 1 ? "s" : ""}
@@ -4249,9 +4406,37 @@ export function App() {
                                                 })}
                                               </div>
                                             </div>
-                                            <span className={`badge ${anyPending ? "badge-status-pending" : "badge-status-confirmed"}`} style={{ marginTop: 2 }}>
-                                              {anyPending ? "Pending" : "Confirmed"}
-                                            </span>
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                              <span className={`badge ${anyPending ? "badge-status-pending" : "badge-status-confirmed"}`} style={{ marginTop: 2 }}>
+                                                {anyPending ? "Pending" : "Confirmed"}
+                                              </span>
+                                              {(() => {
+                                                const ownReg = regs.find(r => r.playerId === pid);
+                                                if (!ownReg) return null;
+                                                const ps = ownReg.paymentStatus ?? "NONE";
+                                                return (
+                                                  <>
+                                                    <span className="badge" style={{
+                                                      background: ps === "APPROVED" ? "rgba(74,222,128,.15)" : ps === "PENDING" ? "rgba(251,191,36,.15)" : "rgba(148,163,184,.12)",
+                                                      border: `1px solid ${ps === "APPROVED" ? "rgba(74,222,128,.4)" : ps === "PENDING" ? "rgba(251,191,36,.4)" : "rgba(148,163,184,.3)"}`,
+                                                      color: ps === "APPROVED" ? "#4ade80" : ps === "PENDING" ? "#fbbf24" : "var(--muted)"
+                                                    }}>
+                                                      {ps === "APPROVED" ? "💰 Paid" : ps === "PENDING" ? "💰 Proof pending" : "💰 No proof"}
+                                                    </span>
+                                                    {isOrganizer && ps === "PENDING" && ownReg.hasPaymentProof && (
+                                                      <div style={{ display: "flex", gap: 4 }}>
+                                                        <button className="btn-sm" onClick={() => onViewPaymentProof(t.id, ownReg.id)}>View</button>
+                                                        <button className="btn-sm" style={{ color: "#4ade80" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Approve</button>
+                                                        <button className="btn-sm" style={{ color: "#f87171" }} onClick={() => onReviewPayment(t.id, ownReg.id, "REJECT")}>Reject</button>
+                                                      </div>
+                                                    )}
+                                                    {isOrganizer && ps === "NONE" && (
+                                                      <button className="btn-sm" style={{ color: "#4ade80" }} onClick={() => onReviewPayment(t.id, ownReg.id, "APPROVE")}>Mark paid</button>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()}
+                                            </div>
                                           </div>
                                         );
                                       })}
@@ -5487,6 +5672,31 @@ export function App() {
                         )}
                       </div>
                     )}
+
+                    {/* Coordinators footer — shown on every tournament tab */}
+                    {(t.coordinators ?? []).length > 0 && (
+                      <div className="glass-card" style={{ marginTop: 16 }}>
+                        <div className="entity-sub" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.7rem" }}>Tournament coordinators</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+                          {(t.coordinators ?? []).map((c, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <Avatar name={c.name} size={28} />
+                              <div>
+                                <div className="entity-name" style={{ fontSize: "0.85rem" }}>{c.name}{c.role ? ` · ${c.role}` : ""}</div>
+                                {c.contact && <div className="entity-sub">{c.contact}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment proof viewer (organizer) */}
+                    {proofViewer && (
+                      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }} onClick={() => setProofViewer(null)}>
+                        <img src={proofViewer} alt="Payment proof" style={{ maxWidth: "90vw", maxHeight: "85vh", borderRadius: 12 }} onClick={e => e.stopPropagation()} />
+                      </div>
+                    )}
                   </>
                 );
               })()
@@ -5669,6 +5879,44 @@ export function App() {
                           DUPR Reported Tournament
                           <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400 }}>(requires DUPR ID + rating on registration)</span>
                         </label>
+                      </div>
+                      <div className="field-row">
+                        <div className="field">
+                          <label>Registration Contact</label>
+                          <input placeholder="e.g. WhatsApp +1 555… (registration team)" value={tourneyInput.registrationContact} onChange={e => setTourneyInput({ ...tourneyInput, registrationContact: e.target.value })} />
+                        </div>
+                        <div className="field">
+                          <label>Tournament Contact</label>
+                          <input placeholder="e.g. tournamentdesk@…, +1 555…" value={tourneyInput.tournamentContact} onChange={e => setTourneyInput({ ...tourneyInput, tournamentContact: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label>Coordinators</label>
+                        {tourneyCoordinators.map((c, i) => (
+                          <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                            <input placeholder="Name" value={c.name} style={{ flex: 2 }}
+                              onChange={e => setTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                            <input placeholder="Role (optional)" value={c.role ?? ""} style={{ flex: 2 }}
+                              onChange={e => setTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} />
+                            <input placeholder="Contact" value={c.contact ?? ""} style={{ flex: 2 }}
+                              onChange={e => setTourneyCoordinators(prev => prev.map((x, j) => j === i ? { ...x, contact: e.target.value } : x))} />
+                            <button type="button" className="btn-ghost" onClick={() => setTourneyCoordinators(prev => prev.filter((_, j) => j !== i))}>✕</button>
+                          </div>
+                        ))}
+                        <button type="button" className="btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setTourneyCoordinators(prev => [...prev, { name: "", role: "", contact: "" }])}>+ Add coordinator</button>
+                      </div>
+                      <div className="field">
+                        <label>Tournament Banner (optional image)</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {tourneyBanner && <img src={tourneyBanner} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />}
+                          <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
+                            onChange={async e => {
+                              const f = e.target.files?.[0];
+                              if (!f) { setTourneyBanner(null); return; }
+                              try { setTourneyBanner(await fileToDataUrl(f, 1_500_000)); } catch (err) { setError((err as Error).message); }
+                            }} />
+                          {tourneyBanner && <button type="button" className="btn-ghost" onClick={() => setTourneyBanner(null)}>Remove</button>}
+                        </div>
                       </div>
                       <button type="submit" className="btn-primary" disabled={loading}>Create Tournament</button>
                     </form>
@@ -6025,7 +6273,7 @@ export function App() {
 
       {/* Bottom navigation — visible on mobile/tablet only */}
       <nav className="bottom-nav" role="tablist">
-        {TABS.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             role="tab"

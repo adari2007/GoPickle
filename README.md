@@ -21,3 +21,8 @@ npm run dev:mobile
 - Web: `web/.env` with `VITE_API_BASE`
 - Mobile: `mobile/.env` with `EXPO_PUBLIC_API_BASE`
 
+
+## Deploy
+
+`web/` is hosted on Cloudflare Pages; the API is on Koyeb.
+See [DEPLOY.md](DEPLOY.md).
