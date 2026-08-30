@@ -3174,7 +3174,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                     <button className="btn-back" onClick={() => setSelectedTournament(null)}>← All Tournaments</button>
 
                     {t.bannerData && (
-                      <img src={t.bannerData} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 14, marginBottom: 14, border: "1px solid var(--border)" }} />
+                      <img src={t.bannerData} alt="" style={{ width: "100%", aspectRatio: "16 / 5", objectFit: "cover", borderRadius: 14, marginBottom: 14, border: "1px solid var(--border)" }} />
                     )}
 
                     <div className="glass-card tourney-header">
@@ -3725,7 +3725,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                                 onClick={() => setEditTourneyCoordinators(prev => [...prev, { name: "", role: "", contact: "" }])}>+ Add coordinator</button>
                             </div>
                             <div className="field">
-                              <label>Tournament Banner</label>
+                              <label>Tournament Banner <span style={{ color: "var(--muted)", fontWeight: 400, textTransform: "none" }}>(16:5, e.g. 1600×500px)</span></label>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                                 {(editTourneyBanner ?? t.bannerData) && editTourneyBanner !== null && (
                                   <img src={editTourneyBanner ?? t.bannerData} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />
@@ -6046,7 +6046,7 @@ export function App({ org: initialOrg, initialUser }: { org: OrgBranding; initia
                         <button type="button" className="btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setTourneyCoordinators(prev => [...prev, { name: "", role: "", contact: "" }])}>+ Add coordinator</button>
                       </div>
                       <div className="field">
-                        <label>Tournament Banner (optional image)</label>
+                        <label>Tournament Banner <span style={{ color: "var(--muted)", fontWeight: 400, textTransform: "none" }}>(optional, 16:5 e.g. 1600×500px)</span></label>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {tourneyBanner && <img src={tourneyBanner} alt="" style={{ height: 40, borderRadius: 6, objectFit: "cover" }} />}
                           <input type="file" accept="image/*" style={{ fontSize: "0.8rem", color: "var(--muted)" }}
