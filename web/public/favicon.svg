@@ -1,0 +1,43 @@
+<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pg" x1="8" y1="8" x2="55" y2="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff4d8d"/>
+      <stop offset="100%" stop-color="#7c6bff"/>
+    </linearGradient>
+    <linearGradient id="pg2" x1="8" y1="8" x2="55" y2="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff4d8d" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#7c6bff" stop-opacity="0.18"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Paddle rotated -30° around face centre (32, 28) -->
+  <g transform="rotate(-30, 32, 28)">
+    <!-- Face: dark fill + gradient stroke -->
+    <ellipse cx="32" cy="28" rx="13" ry="17" fill="#0b1030" stroke="url(#pg)" stroke-width="2.5"/>
+    <!-- Subtle inner glow -->
+    <ellipse cx="32" cy="28" rx="10" ry="14" fill="url(#pg2)"/>
+    <!-- 9 perforations in a 3×3 grid -->
+    <circle cx="26.5" cy="22"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="32"   cy="21"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="37.5" cy="22"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="26.5" cy="28"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="32"   cy="27.5" r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="37.5" cy="28"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="26.5" cy="34"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="32"   cy="33"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <circle cx="37.5" cy="34"   r="1.5" fill="url(#pg)" fill-opacity="0.75"/>
+    <!-- Handle -->
+    <rect x="28.5" y="43" width="7" height="17" rx="3.5" fill="#0b1030" stroke="url(#pg)" stroke-width="2"/>
+    <!-- Grip tape marks -->
+    <line x1="29" y1="48" x2="35" y2="48" stroke="url(#pg)" stroke-width="1" stroke-opacity="0.4"/>
+    <line x1="29" y1="52" x2="35" y2="52" stroke="url(#pg)" stroke-width="1" stroke-opacity="0.4"/>
+    <line x1="29" y1="56" x2="35" y2="56" stroke="url(#pg)" stroke-width="1" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- Pickleball (upper-right, clear of paddle) -->
+  <circle cx="60" cy="17" r="12" fill="#F5D90A" stroke="#E09000" stroke-width="2"/>
+  <!-- Three characteristic holes -->
+  <circle cx="55" cy="14" r="2.2" fill="#0b1030" fill-opacity="0.38"/>
+  <circle cx="65" cy="14" r="2.2" fill="#0b1030" fill-opacity="0.38"/>
+  <circle cx="60" cy="22" r="2.2" fill="#0b1030" fill-opacity="0.38"/>
+</svg>
