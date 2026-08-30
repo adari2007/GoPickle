@@ -239,7 +239,7 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   letter-spacing: .06em;
 }
 
-.field input,
+.field input:not([type="file"]),
 .field select,
 .field textarea {
   width: 100%;
